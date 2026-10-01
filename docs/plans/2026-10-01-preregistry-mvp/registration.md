@@ -52,7 +52,13 @@ metadata 欄位為 app、format_version、network、commitment_hash、reveal_dea
 
 lint、TypeScript/build、39 個 unit tests 通過；6 個 Chromium E2E 以單 worker 全數通過。
 本機 4 workers 重跑時錢包情境耗盡整段 30 秒；單 worker 同一情境 9 秒通過，未放寬 timeout。
-5 個 mutation 全部被 behavioral assertions 抓到。devnet 真實送出／讀回與 CI 仍待驗收。
+5 個 mutation 全部被 behavioral assertions 抓到。[Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36878806615) 在 `52c23fd` 通過同樣全部檢查。
+1280px desktop／375px mobile 截圖已檢視，375px 無橫向 overflow。
+實際 preprod Koios protocol parameters 讀取成功。
+後續以已保存的真實 Yaci 回應新增回歸：metadata 提供 block_time／slot，tx info 提供 hash／invalid／inputs。
+修正前重現不存在的 /utxos 回應造成錯誤，修正後 43 unit、lint 與 build 全數通過；
+hash／invalid／slot 不一致皆拒絕。最後獨立 correctness 審查未發現新重大問題。
+此修正的 CI 與 devnet 真實送出／讀回仍待驗收。
 
 ## 重新執行 integration
 
@@ -61,6 +67,8 @@ lint、TypeScript/build、39 個 unit tests 通過；6 個 Chromium E2E 以單 w
 
 ```sh
 PREREGISTRY_DEVNET=1 make integration
+# Isolated local node can select its container socket:
+PREREGISTRY_DEVNET=1 PREREGISTRY_DEVNET_SOCKET=/work/registration-node/node.sock make integration
 ```
 
 沒有 opt-in 時 make integration 保持 read-only Koios smoke；CI 不送鏈上交易。

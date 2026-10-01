@@ -17,15 +17,15 @@ export async function read_commitment(network: Network, hash: string): Promise<C
   const { core } = await import('@meshsdk/core');
   let payload: unknown, time: number, addresses: string[];
   if (network === 'devnet') {
-    const metadata = await upstream(`${DEVNET}/txs/${hash}/metadata`) as { label: string; json_metadata: unknown }[] | null;
+    const metadata = await upstream(`${DEVNET}/txs/${hash}/metadata`) as { label: string; json_metadata: unknown; block_time: number; slot: number }[] | null;
     if (!metadata) return null;
-    payload = metadata.find(m => String(m.label) === String(METADATA_LABEL))?.json_metadata;
+    const entry = metadata.find(m => String(m.label) === String(METADATA_LABEL));
+    payload = entry?.json_metadata;
     if (!payload) return null;
-    const info = await upstream(`${DEVNET}/txs/${hash}`) as { block_time: number; valid_contract?: boolean };
-    if (info.valid_contract === false) throw new Error('Invalid transaction.');
-    time = info.block_time;
-    const utxos = await upstream(`${DEVNET}/txs/${hash}/utxos`) as { inputs: { address: string }[] };
-    addresses = utxos.inputs.map(i => i.address);
+    const info = await upstream(`${DEVNET}/txs/${hash}`) as { hash: string; invalid: boolean; slot: number; inputs: { address: string }[] };
+    if (info.hash !== hash || info.invalid !== false || info.slot !== entry!.slot) throw new Error('Invalid transaction context.');
+    time = entry!.block_time;
+    addresses = info.inputs.map(i => i.address);
   } else {
     const records = await upstream(`${PREPROD}/tx_info`, { _tx_hashes: [hash], _inputs: true, _metadata: true }) as
       { tx_hash: string; tx_timestamp: number; valid_contract: boolean; metadata: Record<string, unknown>; inputs: { payment_addr: { bech32: string } }[] }[];

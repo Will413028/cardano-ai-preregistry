@@ -49,8 +49,9 @@ export async function prepare_registration(payload: CommitmentPayload, wallet: B
   if (input_address.getNetworkId() !== 0 || input_address.getProps().paymentPart?.type !== core.CredentialType.KeyHash) throw new Error('A testnet payment key input is required.');
   const registrant = core.resolvePaymentKeyHash(input.output.address);
   const chain_utxos = await data.utxos(payload.network, input.input.txHash);
-  const real = chain_utxos.find(u => u.input.outputIndex === input.input.outputIndex && u.output.address === input.output.address);
-  if (!real || JSON.stringify(real.output.amount) !== JSON.stringify(input.output.amount)) throw new Error('Wallet input was not found on the selected test network.');
+  const real = chain_utxos.find(u => u.input.txHash === input.input.txHash && u.input.outputIndex === input.input.outputIndex && u.output.address === input.output.address);
+  if (!real || real.output.amount.length !== 1 || real.output.amount[0]?.unit !== 'lovelace' ||
+    BigInt(real.output.amount[0].quantity) !== BigInt(input.output.amount[0]!.quantity)) throw new Error('Wallet input was not found on the selected test network.');
   const builder = new MeshTxBuilder({ params: await data.protocol(payload.network), verbose: false });
   const unsigned_tx = await builder.txIn(input.input.txHash, input.input.outputIndex, input.output.amount, input.output.address, 0)
     .metadataValue(METADATA_LABEL, payload).requiredSignerHash(registrant)

@@ -8,6 +8,21 @@ const input: UTxO = { input: { txHash: 'a'.repeat(64), outputIndex: 0 }, output:
 const payload = { app: 'cardano-ai-preregistry', format_version: 1, network: 'devnet', commitment_hash: 'd'.repeat(64), reveal_deadline: '2026-12-01T00:00:00Z' } as const;
 const wallet = { getNetworkId: async () => 0, getChangeAddress: async () => address, getUtxos: async () => [input] };
 const data = { protocol: async () => DEFAULT_PROTOCOL_PARAMETERS, utxos: async () => [input] };
+it('accepts provider asset annotations while preserving the exact lovelace amount', async () => {
+  const indexed = structuredClone(input);
+  Object.assign(indexed.output.amount[0]!, { policy_id: '', asset_name: 'lovelace' });
+  const prepared = await prepare_registration(payload, wallet, { ...data, utxos: async () => [indexed] });
+  expect(prepared.registrant).toBe('b'.repeat(56));
+  expect(inspect_transaction(prepared.unsigned_tx).fee).toBeLessThanOrEqual(300000n);
+});
+it('rejects a different indexed lovelace amount', async () => {
+  const indexed = structuredClone(input); indexed.output.amount[0]!.quantity = '10000001';
+  await expect(prepare_registration(payload, wallet, { ...data, utxos: async () => [indexed] })).rejects.toThrow('selected test network');
+});
+it('rejects an indexed output from a different transaction', async () => {
+  const indexed = structuredClone(input); indexed.input.txHash = 'c'.repeat(64);
+  await expect(prepare_registration(payload, wallet, { ...data, utxos: async () => [indexed] })).rejects.toThrow('selected test network');
+});
 it('builds real Mesh CBOR with exact metadata, a registrant signer and a capped fee', async () => {
   const prepared = await prepare_registration(payload, wallet, data);
   const view = inspect_transaction(prepared.unsigned_tx);

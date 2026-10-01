@@ -50,15 +50,26 @@ metadata 欄位為 app、format_version、network、commitment_hash、reveal_dea
 
 ## 驗收結果
 
-lint、TypeScript/build、39 個 unit tests 通過；6 個 Chromium E2E 以單 worker 全數通過。
-本機 4 workers 重跑時錢包情境耗盡整段 30 秒；單 worker 同一情境 9 秒通過，未放寬 timeout。
-5 個 mutation 全部被 behavioral assertions 抓到。[Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36878806615) 在 `52c23fd` 通過同樣全部檢查。
-1280px desktop／375px mobile 截圖已檢視，375px 無橫向 overflow。
-實際 preprod Koios protocol parameters 讀取成功。
-後續以已保存的真實 Yaci 回應新增回歸：metadata 提供 block_time／slot，tx info 提供 hash／invalid／inputs。
-修正前重現不存在的 /utxos 回應造成錯誤，修正後 43 unit、lint 與 build 全數通過；
-hash／invalid／slot 不一致皆拒絕。最後獨立 correctness 審查未發現新重大問題。
-此修正的 CI 與 devnet 真實送出／讀回仍待驗收。
+- `make check`：lint、TypeScript/build、46 unit tests、6 Chromium E2E 全數通過。
+- 5 個 mutation 全數被測試抓到：verifier always match、canonical key order、salt omitted、private metadata field、fixed salt。
+- [真實 devnet 結果](registration-results.json)：tx `5e8120f2820dfcd048bb52783efa5374db237ffa092ef3e445c8814af7418f7f`，
+  fee 176413 lovelace（低於 300000），readback 19935ms；獨立 verifier 為 match，deadline 與 registrant 一致。
+  metadata 只含白名單，private draft 留 ignored 本機檔案；簽署使用本機 CLI test key，不是真實 extension。
+- [初版 CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36878806615) 與
+  [Yaci reader 修正 CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36882111225) 全數通過。
+  最後 UTxO 與 integration runner 修正的 CI 待驗收。
+- 1280px desktop／375px mobile 截圖已檢視，375px 無橫向 overflow。
+  實際 preprod Koios protocol parameters 讀取成功；公網 extension 簽署未驗收。
+
+真實回應回歸涵蓋 Yaci metadata 的 block_time／slot、tx info 的 hash／invalid／inputs；
+reader 核對 hash、invalid=false、slot 一致。UTxO 比對只取交易／輸出位置／地址／單一 lovelace 精確數量，
+不把 provider 額外的 policy_id／asset_name 說明欄位誤判成不同餘額。
+這兩項皆先重現失敗，再修正並加正反案例；最後獨立 correctness 審查未發現新重大問題。
+
+本次隔離 devnet：magic 42、Conway 自 epoch 0、securityParam 2160、epochLength 21600；
+保留原 fee protocol parameters。原短 epoch 鏈停機後超出 forecast window，保留原鏈／DB，
+另建 ignored 測試鏈與 Store DB；實際 CLI tip 同步 100% 且持續出塊後才送出。
+Node 22 runner 使用已核對可用的 transform-types，支援共用 cache 的 parameter properties。
 
 ## 重新執行 integration
 

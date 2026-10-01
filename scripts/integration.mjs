@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 // Explicit opt-in sends one transaction only to the authorized local devnet.
 if (process.env.PREREGISTRY_DEVNET === '1') {
-  const result = spawnSync(process.execPath, ['--experimental-strip-types', fileURLToPath(new URL('./register-devnet.ts', import.meta.url))], { stdio: 'inherit', timeout: 300000 });
+  const result = spawnSync(process.execPath, ['--experimental-transform-types', fileURLToPath(new URL('./register-devnet.ts', import.meta.url))], { stdio: 'inherit', timeout: 300000 });
   if (result.error) throw result.error;
   process.exit(result.status ?? 1);
 }

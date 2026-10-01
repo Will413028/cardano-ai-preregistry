@@ -221,7 +221,7 @@ P-授權已確認；Will 指示先執行步驟 2、3（產出事實，不是產�
 | 3 Spike：正規化與 hash | 完成 | 66 向量：60 組 bytes/hash 一致、6 組同拒絕；key 順序與值變更各 6 組通過，見 spike-canonical.md | 無；不包含產品 schema 或 Merkle proof 驗收 | `1cb5d5b` |
 | 4 Spike：讀取與索引 | 完成（Will 選公開樣本範圍） | Koios 三類查詢、分頁尾頁成功；兩網路 123456789 碰撞；Blockfrost 無 key 三端點 403；見 spike-indexing.md | Blockfrost 成功讀取、自家 preprod 索引延遲、CORS 與熱門 label 全歷史排序未驗；後續按選定來源補 | `1cb5d5b` |
 | 5 Walking skeleton | 完成 | 本機與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36868041395) 的 lint／TypeScript＋build、26 unit、4 Chromium e2e、2 mutation 通過；本機 read-only Koios smoke、桌面／375px 檢視通過 | 真實 CIP-30／metadata、Koios adapter／索引屬後續步驟；見 walking-skeleton.md | `1cb5d5b` |
-| 6 切片：登記 | 進行中 | lint/build、39 unit、6 E2E（單 worker）、5 mutation 通過；獨立審查已處理，見 registration.md | devnet 送出／讀回與 CI 待驗收 | 實作準備提交 |
+| 6 切片：登記 | 進行中 | lint/build、46 unit、6 E2E、devnet fee176413／hash及deadline match；獨立審查已處理，見 registration.md | 5 mutation 通過；修正後 head CI 待驗收 | 52c23fd、a0e257a 已 push；最後修正待提交 |
 | 7 切片：揭露與核對 | 未開始 | | | |
 | 8 切片：狀態介面 | 未開始 | | | |
 | 9 硬化 | 未開始 | | | |

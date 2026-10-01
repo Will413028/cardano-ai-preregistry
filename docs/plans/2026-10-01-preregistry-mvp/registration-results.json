@@ -1,0 +1,22 @@
+{
+  "network": "devnet",
+  "network_magic": 42,
+  "tx_hash": "5e8120f2820dfcd048bb52783efa5374db237ffa092ef3e445c8814af7418f7f",
+  "fee_lovelace": "176413",
+  "commitment_hash": "2ad6b36cf9c73228b8c4fdd4014217418738ad3d08b5debcef516c6e6a203d0b",
+  "reveal_deadline": "2030-01-01T00:00:00Z",
+  "record": {
+    "app": "cardano-ai-preregistry",
+    "commitment_hash": "2ad6b36cf9c73228b8c4fdd4014217418738ad3d08b5debcef516c6e6a203d0b",
+    "format_version": 1,
+    "reveal_deadline": "2030-01-01T00:00:00Z",
+    "network": "devnet",
+    "tx_hash": "5e8120f2820dfcd048bb52783efa5374db237ffa092ef3e445c8814af7418f7f",
+    "block_time": "2026-10-01T15:19:54.000Z",
+    "registrant": "1af2b9f112255b4227fbdd675cdee72e65d58fd6ba459775b570adf9",
+    "source": "devnet"
+  },
+  "verified": "match",
+  "readback_ms": 19935,
+  "browser_extension_used": false
+}

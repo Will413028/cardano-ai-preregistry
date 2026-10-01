@@ -1,0 +1,1016 @@
+[
+  {
+    "id": "jcs-sha256/concat/key-order-a",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "z": 2,
+      "a": 1
+    },
+    "canonical_hex": "7b2261223a312c227a223a327d",
+    "expected_hash": "e0c6ce6aee90ec7ee7424421a8d4708efe38ab2d0faa488ea9a27ca8b9e9cf03"
+  },
+  {
+    "id": "jcs-sha256/concat/key-order-b",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 2
+    },
+    "canonical_hex": "7b2261223a312c227a223a327d",
+    "expected_hash": "e0c6ce6aee90ec7ee7424421a8d4708efe38ab2d0faa488ea9a27ca8b9e9cf03"
+  },
+  {
+    "id": "jcs-sha256/concat/changed-value",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 3
+    },
+    "canonical_hex": "7b2261223a312c227a223a337d",
+    "expected_hash": "ce598cb627bcc42ed02c361fb13a4968fe9da5fa57136c9b66311cdb2b9e5c17"
+  },
+  {
+    "id": "jcs-sha256/concat/unicode",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "": "繁體中文",
+      "😀": "é",
+      "é": "é"
+    },
+    "canonical_hex": "7b22c3a9223a2265cc81222c22f09f9880223a22c3a9222c22ee8080223a22e7b981e9ab94e4b8ade69687227d",
+    "expected_hash": "1249652150c1230af91ca476ebf63f228a3e5505eaee1ab876510e458d6ddae7"
+  },
+  {
+    "id": "jcs-sha256/concat/float",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "temperature": 0.1,
+      "epsilon": 1e-07,
+      "integral": 1.0,
+      "negative_zero": -0.0
+    },
+    "canonical_hex": "7b22657073696c6f6e223a31652d372c22696e74656772616c223a312c226e656761746976655f7a65726f223a302c2274656d7065726174757265223a302e317d",
+    "expected_hash": "6a3bdb8a79610c8f3480ded37003c4a5d741a94bd792b78b09de33dc88f18555"
+  },
+  {
+    "id": "jcs-sha256/concat/safe-integer",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740991
+    },
+    "canonical_hex": "7b2273656564223a393030373139393235343734303939317d",
+    "expected_hash": "280f73977c5d4889c56dac0b23c439f093928f8bfaf4c24c9e2c04449d26916b"
+  },
+  {
+    "id": "jcs-sha256/concat/large-integer",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740993
+    },
+    "expected_error": "unsafe-number: use a decimal string"
+  },
+  {
+    "id": "jcs-sha256/concat/large-integer-string",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": "9007199254740993"
+    },
+    "canonical_hex": "7b2273656564223a2239303037313939323534373430393933227d",
+    "expected_hash": "695de853851f8a4f32a1c87c727850019a79956e4c1a32195a824aa81da0bc09"
+  },
+  {
+    "id": "jcs-sha256/concat/empty-array",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "runs": []
+    },
+    "canonical_hex": "7b2272756e73223a5b5d7d",
+    "expected_hash": "a6abf8383e246241027d93ebfd9af48e70cf8373722ac5ab4b517d7a4fbb942a"
+  },
+  {
+    "id": "jcs-sha256/concat/nested",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "experiments": [
+        {
+          "config": {
+            "top_k": 5,
+            "temperature": 0.7
+          },
+          "planned_runs": 3
+        }
+      ],
+      "ok": true,
+      "nil": null
+    },
+    "canonical_hex": "7b226578706572696d656e7473223a5b7b22636f6e666967223a7b2274656d7065726174757265223a302e372c22746f705f6b223a357d2c22706c616e6e65645f72756e73223a337d5d2c226e696c223a6e756c6c2c226f6b223a747275657d",
+    "expected_hash": "790da23715a41daccb0c3b9b9f93e56718a598b33df0301979bd04842798e0d5"
+  },
+  {
+    "id": "jcs-sha256/concat/empty-object",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {},
+    "canonical_hex": "7b7d",
+    "expected_hash": "31b3879dd5d4575864de4169eb322cd38adf86336bacc9fd44bd211f46475c17"
+  },
+  {
+    "id": "jcs-sha256/hmac/key-order-a",
+    "format": "jcs-sha256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "z": 2,
+      "a": 1
+    },
+    "canonical_hex": "7b2261223a312c227a223a327d",
+    "expected_hash": "b5cc9e11f32457299c8409c3e85576461621f23bbc482f5413e57128071db2e2"
+  },
+  {
+    "id": "jcs-sha256/hmac/key-order-b",
+    "format": "jcs-sha256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 2
+    },
+    "canonical_hex": "7b2261223a312c227a223a327d",
+    "expected_hash": "b5cc9e11f32457299c8409c3e85576461621f23bbc482f5413e57128071db2e2"
+  },
+  {
+    "id": "jcs-sha256/hmac/changed-value",
+    "format": "jcs-sha256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 3
+    },
+    "canonical_hex": "7b2261223a312c227a223a337d",
+    "expected_hash": "b0c1858976c721b54991105cc4d6821d4c5c212f69b704926682125f06ae0583"
+  },
+  {
+    "id": "jcs-sha256/hmac/unicode",
+    "format": "jcs-sha256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "": "繁體中文",
+      "😀": "é",
+      "é": "é"
+    },
+    "canonical_hex": "7b22c3a9223a2265cc81222c22f09f9880223a22c3a9222c22ee8080223a22e7b981e9ab94e4b8ade69687227d",
+    "expected_hash": "7d786ca49c9186fbda99827babb5676d35b2ee03d2669d6a75639cc197c19c3d"
+  },
+  {
+    "id": "jcs-sha256/hmac/float",
+    "format": "jcs-sha256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "temperature": 0.1,
+      "epsilon": 1e-07,
+      "integral": 1.0,
+      "negative_zero": -0.0
+    },
+    "canonical_hex": "7b22657073696c6f6e223a31652d372c22696e74656772616c223a312c226e656761746976655f7a65726f223a302c2274656d7065726174757265223a302e317d",
+    "expected_hash": "cdd8fcc467b3918ac5b356c6ff754f04446acf0deb30154c1152a135bb8c5feb"
+  },
+  {
+    "id": "jcs-sha256/hmac/safe-integer",
+    "format": "jcs-sha256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740991
+    },
+    "canonical_hex": "7b2273656564223a393030373139393235343734303939317d",
+    "expected_hash": "27e7a0d7834a205baccf0ca4a9731d58f77b3624969ab6c171d71a67d5feb2f2"
+  },
+  {
+    "id": "jcs-sha256/hmac/large-integer",
+    "format": "jcs-sha256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740993
+    },
+    "expected_error": "unsafe-number: use a decimal string"
+  },
+  {
+    "id": "jcs-sha256/hmac/large-integer-string",
+    "format": "jcs-sha256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": "9007199254740993"
+    },
+    "canonical_hex": "7b2273656564223a2239303037313939323534373430393933227d",
+    "expected_hash": "4a54ea606c94abd183b6f316066d6f4db42135675206dc68a648ccf2b3beb7cb"
+  },
+  {
+    "id": "jcs-sha256/hmac/empty-array",
+    "format": "jcs-sha256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "runs": []
+    },
+    "canonical_hex": "7b2272756e73223a5b5d7d",
+    "expected_hash": "cd7186897dcaff8a7ae4c7780e8df63747f8d3c4a94950e5d9651e657e19b008"
+  },
+  {
+    "id": "jcs-sha256/hmac/nested",
+    "format": "jcs-sha256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "experiments": [
+        {
+          "config": {
+            "top_k": 5,
+            "temperature": 0.7
+          },
+          "planned_runs": 3
+        }
+      ],
+      "ok": true,
+      "nil": null
+    },
+    "canonical_hex": "7b226578706572696d656e7473223a5b7b22636f6e666967223a7b2274656d7065726174757265223a302e372c22746f705f6b223a357d2c22706c616e6e65645f72756e73223a337d5d2c226e696c223a6e756c6c2c226f6b223a747275657d",
+    "expected_hash": "3f14d6bb667283688c4d6ba344195be2f29c7d3e5ab4b496d46f92f4c4a1104f"
+  },
+  {
+    "id": "jcs-sha256/hmac/empty-object",
+    "format": "jcs-sha256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {},
+    "canonical_hex": "7b7d",
+    "expected_hash": "2072f1de51ee053f0e463d483c5e259dc9442d3cce38f082bcd12aa2caa4f1c5"
+  },
+  {
+    "id": "jcs-sha256/merkle/key-order-a",
+    "format": "jcs-sha256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "z": 2,
+      "a": 1
+    },
+    "canonical_hex": "7b2261223a312c227a223a327d",
+    "expected_hash": "65dfc561c016e5c8ba293ade22640355cd5fd407529126cd570dd410866aeed0"
+  },
+  {
+    "id": "jcs-sha256/merkle/key-order-b",
+    "format": "jcs-sha256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 2
+    },
+    "canonical_hex": "7b2261223a312c227a223a327d",
+    "expected_hash": "65dfc561c016e5c8ba293ade22640355cd5fd407529126cd570dd410866aeed0"
+  },
+  {
+    "id": "jcs-sha256/merkle/changed-value",
+    "format": "jcs-sha256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 3
+    },
+    "canonical_hex": "7b2261223a312c227a223a337d",
+    "expected_hash": "1197072a1a6b3631c82d4d373a3c1349d6579acf0da0df9f5c02b028c9681448"
+  },
+  {
+    "id": "jcs-sha256/merkle/unicode",
+    "format": "jcs-sha256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "": "繁體中文",
+      "😀": "é",
+      "é": "é"
+    },
+    "canonical_hex": "7b22c3a9223a2265cc81222c22f09f9880223a22c3a9222c22ee8080223a22e7b981e9ab94e4b8ade69687227d",
+    "expected_hash": "982cbaf0218a22fe8cb51cb963039d6a9559387b182895c1b6e1f3f3cfde3998"
+  },
+  {
+    "id": "jcs-sha256/merkle/float",
+    "format": "jcs-sha256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "temperature": 0.1,
+      "epsilon": 1e-07,
+      "integral": 1.0,
+      "negative_zero": -0.0
+    },
+    "canonical_hex": "7b22657073696c6f6e223a31652d372c22696e74656772616c223a312c226e656761746976655f7a65726f223a302c2274656d7065726174757265223a302e317d",
+    "expected_hash": "4afb53879ebfbfec5217da3e13356699a1a7555cd842165be8b9a44ff19f70dc"
+  },
+  {
+    "id": "jcs-sha256/merkle/safe-integer",
+    "format": "jcs-sha256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740991
+    },
+    "canonical_hex": "7b2273656564223a393030373139393235343734303939317d",
+    "expected_hash": "8646d89fe5a0acea7c37d11b8c0bb15de11d3928270d1f9d5d72a55e48a0b3c9"
+  },
+  {
+    "id": "jcs-sha256/merkle/large-integer",
+    "format": "jcs-sha256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740993
+    },
+    "expected_error": "unsafe-number: use a decimal string"
+  },
+  {
+    "id": "jcs-sha256/merkle/large-integer-string",
+    "format": "jcs-sha256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": "9007199254740993"
+    },
+    "canonical_hex": "7b2273656564223a2239303037313939323534373430393933227d",
+    "expected_hash": "f61c31867aab40028962d87a2069635f41ac420e6e04be6bea07fc38866e1fb4"
+  },
+  {
+    "id": "jcs-sha256/merkle/empty-array",
+    "format": "jcs-sha256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "runs": []
+    },
+    "canonical_hex": "7b2272756e73223a5b5d7d",
+    "expected_hash": "75362ad4f7a99b728818f213e71d615c8aeb3fbab0be057ae66b030966a84069"
+  },
+  {
+    "id": "jcs-sha256/merkle/nested",
+    "format": "jcs-sha256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "experiments": [
+        {
+          "config": {
+            "top_k": 5,
+            "temperature": 0.7
+          },
+          "planned_runs": 3
+        }
+      ],
+      "ok": true,
+      "nil": null
+    },
+    "canonical_hex": "7b226578706572696d656e7473223a5b7b22636f6e666967223a7b2274656d7065726174757265223a302e372c22746f705f6b223a357d2c22706c616e6e65645f72756e73223a337d5d2c226e696c223a6e756c6c2c226f6b223a747275657d",
+    "expected_hash": "d8703058e908f7d857e7855aeca6b9fa759f093c6a19a07201b5c34901508f8e"
+  },
+  {
+    "id": "jcs-sha256/merkle/empty-object",
+    "format": "jcs-sha256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {},
+    "canonical_hex": "7b7d",
+    "expected_hash": "5431b11d56569c3d464b2dab1052f5893eae3a5318f8e83325b702e8d291fd45"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/concat/key-order-a",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "z": 2,
+      "a": 1
+    },
+    "canonical_hex": "a2616101617a02",
+    "expected_hash": "b7973a5ed27d5028c4f194c6d68b5757918bd93d43788584db8411622f5fd0f2"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/concat/key-order-b",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 2
+    },
+    "canonical_hex": "a2616101617a02",
+    "expected_hash": "b7973a5ed27d5028c4f194c6d68b5757918bd93d43788584db8411622f5fd0f2"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/concat/changed-value",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 3
+    },
+    "canonical_hex": "a2616101617a03",
+    "expected_hash": "d441a937e80949ab22b29bdcdb9137c7fba0834fd0f6ff2f4f71919e320b70e5"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/concat/unicode",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "": "繁體中文",
+      "😀": "é",
+      "é": "é"
+    },
+    "canonical_hex": "a362c3a96365cc8163ee80806ce7b981e9ab94e4b8ade6968764f09f988062c3a9",
+    "expected_hash": "da6ee0ad7b8aea23c71ab546c2c3cf408ab836a0f1c2c5ee6e73a053d74aa7dd"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/concat/float",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "temperature": 0.1,
+      "epsilon": 1e-07,
+      "integral": 1.0,
+      "negative_zero": -0.0
+    },
+    "canonical_hex": "a467657073696c6f6efb3e7ad7f29abcaf4868696e74656772616c016b74656d7065726174757265fb3fb999999999999a6d6e656761746976655f7a65726f00",
+    "expected_hash": "c8eb424cdf33d7b53012e58c5d455fb1cf3d398ab46afcf8c4ba6db0bfa43284"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/concat/safe-integer",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740991
+    },
+    "canonical_hex": "a164736565641b001fffffffffffff",
+    "expected_hash": "7d16116d6a15a36407bb95271e56427dcb561a29a74264dce42a1fe16e27d33c"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/concat/large-integer",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740993
+    },
+    "expected_error": "unsafe-number: use a decimal string"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/concat/large-integer-string",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": "9007199254740993"
+    },
+    "canonical_hex": "a164736565647039303037313939323534373430393933",
+    "expected_hash": "4221fe8e5961b9e327ef4c7a2df64fde4c348bf36278c637ad3b8364abb61543"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/concat/empty-array",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "runs": []
+    },
+    "canonical_hex": "a16472756e7380",
+    "expected_hash": "fc6104bbec5a63413baf2efb325393e13673c156c1da06653f4bc4f8c967fe7b"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/concat/nested",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "experiments": [
+        {
+          "config": {
+            "top_k": 5,
+            "temperature": 0.7
+          },
+          "planned_runs": 3
+        }
+      ],
+      "ok": true,
+      "nil": null
+    },
+    "canonical_hex": "a3626f6bf5636e696cf66b6578706572696d656e747381a266636f6e666967a265746f705f6b056b74656d7065726174757265fb3fe66666666666666c706c616e6e65645f72756e7303",
+    "expected_hash": "c791fb57c78aa0347005beb0fe04046b0487cb61bf0abaaaf5a1d4c23749aaff"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/concat/empty-object",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {},
+    "canonical_hex": "a0",
+    "expected_hash": "a0cd20a43e37d793c894ad009a1c4ac7971fc55993f3e13c2184cd28b5b2827b"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/hmac/key-order-a",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "z": 2,
+      "a": 1
+    },
+    "canonical_hex": "a2616101617a02",
+    "expected_hash": "6650330059f17cb66d53d418299ccf80bc62461d99729759b368f7352d1a203f"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/hmac/key-order-b",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 2
+    },
+    "canonical_hex": "a2616101617a02",
+    "expected_hash": "6650330059f17cb66d53d418299ccf80bc62461d99729759b368f7352d1a203f"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/hmac/changed-value",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 3
+    },
+    "canonical_hex": "a2616101617a03",
+    "expected_hash": "fc451b229b693c55b2f455bbbf3be3b9530fab2fdbf4e01f4a82133abf0ed763"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/hmac/unicode",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "": "繁體中文",
+      "😀": "é",
+      "é": "é"
+    },
+    "canonical_hex": "a362c3a96365cc8163ee80806ce7b981e9ab94e4b8ade6968764f09f988062c3a9",
+    "expected_hash": "50b3526430126da3fa2b3d6c59657c63b2e30e6065dbf9cea3768e24e95cc4cc"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/hmac/float",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "temperature": 0.1,
+      "epsilon": 1e-07,
+      "integral": 1.0,
+      "negative_zero": -0.0
+    },
+    "canonical_hex": "a467657073696c6f6efb3e7ad7f29abcaf4868696e74656772616c016b74656d7065726174757265fb3fb999999999999a6d6e656761746976655f7a65726f00",
+    "expected_hash": "21a64edf42cac18b53229e0fa4bfe05a98f268357c9828f3e07ee5a93a492e44"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/hmac/safe-integer",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740991
+    },
+    "canonical_hex": "a164736565641b001fffffffffffff",
+    "expected_hash": "efbb272da87a3912edf126ab86f70eee25602e9c643737ecdabdf7dd94a28a05"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/hmac/large-integer",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740993
+    },
+    "expected_error": "unsafe-number: use a decimal string"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/hmac/large-integer-string",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": "9007199254740993"
+    },
+    "canonical_hex": "a164736565647039303037313939323534373430393933",
+    "expected_hash": "ca4315cb41cc85007ba987c234e6023aa22ca54aa761b9e15482f0ee961cf617"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/hmac/empty-array",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "runs": []
+    },
+    "canonical_hex": "a16472756e7380",
+    "expected_hash": "0a38ffc1addd6ed707f3dceecdd167d8ef017a5025f21b043004c8bf839fc42c"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/hmac/nested",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "experiments": [
+        {
+          "config": {
+            "top_k": 5,
+            "temperature": 0.7
+          },
+          "planned_runs": 3
+        }
+      ],
+      "ok": true,
+      "nil": null
+    },
+    "canonical_hex": "a3626f6bf5636e696cf66b6578706572696d656e747381a266636f6e666967a265746f705f6b056b74656d7065726174757265fb3fe66666666666666c706c616e6e65645f72756e7303",
+    "expected_hash": "17aee3c43e8f79084df6a3c296a6e232020d3fa904e5d282601d98fac2847493"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/hmac/empty-object",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "hmac",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {},
+    "canonical_hex": "a0",
+    "expected_hash": "1bd18996305b90322dd4f6568416144298a8927393871555e2530460dc3323b0"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/merkle/key-order-a",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "z": 2,
+      "a": 1
+    },
+    "canonical_hex": "a2616101617a02",
+    "expected_hash": "a9fcc7b7c13dd4645922973308e3c0275507f263cc27c0683f6cd3ba5c07218a"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/merkle/key-order-b",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 2
+    },
+    "canonical_hex": "a2616101617a02",
+    "expected_hash": "a9fcc7b7c13dd4645922973308e3c0275507f263cc27c0683f6cd3ba5c07218a"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/merkle/changed-value",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 3
+    },
+    "canonical_hex": "a2616101617a03",
+    "expected_hash": "6b90b64ea55f7348c0fc560cc1c968ceb812c5d8eeae0a84981aa5a93bc133df"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/merkle/unicode",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "": "繁體中文",
+      "😀": "é",
+      "é": "é"
+    },
+    "canonical_hex": "a362c3a96365cc8163ee80806ce7b981e9ab94e4b8ade6968764f09f988062c3a9",
+    "expected_hash": "ac6f0d89ef46fb5d9dc2c68221460dfff2e79200b930b7805940fe9d2ec17321"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/merkle/float",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "temperature": 0.1,
+      "epsilon": 1e-07,
+      "integral": 1.0,
+      "negative_zero": -0.0
+    },
+    "canonical_hex": "a467657073696c6f6efb3e7ad7f29abcaf4868696e74656772616c016b74656d7065726174757265fb3fb999999999999a6d6e656761746976655f7a65726f00",
+    "expected_hash": "0dd8c4e48ba09f62df7f9ad912af85ddd1d29075efe6bdd6f76539aaa96e3cb0"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/merkle/safe-integer",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740991
+    },
+    "canonical_hex": "a164736565641b001fffffffffffff",
+    "expected_hash": "18dad4f11175aa41ab930f0b0156359aafd1bde45ef6599daeb81a699627da0b"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/merkle/large-integer",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740993
+    },
+    "expected_error": "unsafe-number: use a decimal string"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/merkle/large-integer-string",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": "9007199254740993"
+    },
+    "canonical_hex": "a164736565647039303037313939323534373430393933",
+    "expected_hash": "a7cce6bd2df9d6cc0b16484da32cc6f1f282b9f6b68582e7f519c1bab10a48ef"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/merkle/empty-array",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "runs": []
+    },
+    "canonical_hex": "a16472756e7380",
+    "expected_hash": "f0bc531d2272cff1438fd6d08a990466fd0a86195051716eb052f13bdf1398a2"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/merkle/nested",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "experiments": [
+        {
+          "config": {
+            "top_k": 5,
+            "temperature": 0.7
+          },
+          "planned_runs": 3
+        }
+      ],
+      "ok": true,
+      "nil": null
+    },
+    "canonical_hex": "a3626f6bf5636e696cf66b6578706572696d656e747381a266636f6e666967a265746f705f6b056b74656d7065726174757265fb3fe66666666666666c706c616e6e65645f72756e7303",
+    "expected_hash": "1e0e1b49aa980bdffb60f5533edb8415a9af33ed7ec4bd2851e9390f68bf3c77"
+  },
+  {
+    "id": "cbor-length-first-blake2b256/merkle/empty-object",
+    "format": "cbor-length-first-blake2b256",
+    "construction": "merkle",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {},
+    "canonical_hex": "a0",
+    "expected_hash": "7bb7e9217f36d72e22806f1830b47e4d369e8dd7a2a580392690c37250f59974"
+  }
+]

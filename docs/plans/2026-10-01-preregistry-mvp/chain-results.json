@@ -1,0 +1,125 @@
+{
+  "network": "devnet",
+  "network_magic": 42,
+  "label": 123456789,
+  "format_version": 0,
+  "tx_id": "8c2afcfadea9721506a6edd08f305a7024e78c1537429c9a6b6826a1d385818a",
+  "commitment_hash": "8ab9123cac1dc83e558a95c183e16d1dc69af56d117b73538ec6b3a3b71b99fd",
+  "readback_hash": "8ab9123cac1dc83e558a95c183e16d1dc69af56d117b73538ec6b3a3b71b99fd",
+  "readback_equal": true,
+  "signed_size_bytes": 348,
+  "actual_fee_lovelace": 175269,
+  "min_fee_a": 44,
+  "min_fee_b": 155381,
+  "linear_fee_lovelace": 170693,
+  "fee_minus_linear_lovelace": 4576,
+  "calculate_min_fee_output": "170649 Lovelace",
+  "build_output": "Estimated transaction fee: 175269 Lovelace",
+  "local_inclusion_seconds": 2.825,
+  "indexer_readback_seconds": 3.341,
+  "tip_before": {
+    "block": 662,
+    "epoch": 13,
+    "era": "Conway",
+    "hash": "b15b4dda1d6b906a589ed4c4c24f18abdd602544978806139d4d8367711f33f8",
+    "slot": 789,
+    "slotInEpoch": 9,
+    "slotsToEpochEnd": 51,
+    "syncProgress": "100.00"
+  },
+  "tip_after": {
+    "block": 666,
+    "epoch": 13,
+    "era": "Conway",
+    "hash": "fa0756fddfc91fb70bf696ec7d9d5e62b57b8f12ddfef099384a60e0f5e3b9d7",
+    "slot": 793,
+    "slotInEpoch": 13,
+    "slotsToEpochEnd": 47,
+    "syncProgress": "100.00"
+  },
+  "metadata_readback": [
+    {
+      "block_number": 664,
+      "block_time": 1790839652,
+      "label": "123456789",
+      "body": {
+        "app": "cardano-ai-preregistry:spike",
+        "magic": 42,
+        "version": 0,
+        "hash": "0x8ab9123cac1dc83e558a95c183e16d1dc69af56d117b73538ec6b3a3b71b99fd",
+        "network": "devnet"
+      },
+      "json_metadata": {
+        "app": "cardano-ai-preregistry:spike",
+        "magic": 42,
+        "version": 0,
+        "hash": "0x8ab9123cac1dc83e558a95c183e16d1dc69af56d117b73538ec6b3a3b71b99fd",
+        "network": "devnet"
+      },
+      "slot": 791
+    }
+  ],
+  "tx_info": {
+    "hash": "8c2afcfadea9721506a6edd08f305a7024e78c1537429c9a6b6826a1d385818a",
+    "block_height": 664,
+    "slot": 791,
+    "inputs": [
+      {
+        "tx_hash": "05ae6711eea4c2f7d9e310b485e5fa7befbfc0da86720f7bb149becc057333f0",
+        "output_index": 0,
+        "address": "addr_test1vqd09w03zgj4ks38l0wkwhx7uuhxt4v066ayt9m4k4c2m7g26zpkq",
+        "stake_address": null,
+        "amount": [
+          {
+            "unit": "lovelace",
+            "policy_id": null,
+            "asset_name": "lovelace",
+            "quantity": 99649462
+          }
+        ],
+        "data_hash": null,
+        "inline_datum": null,
+        "script_ref": null,
+        "reference_script_hash": null,
+        "inline_datum_json": null
+      }
+    ],
+    "outputs": [
+      {
+        "tx_hash": "8c2afcfadea9721506a6edd08f305a7024e78c1537429c9a6b6826a1d385818a",
+        "output_index": 0,
+        "address": "addr_test1vqd09w03zgj4ks38l0wkwhx7uuhxt4v066ayt9m4k4c2m7g26zpkq",
+        "stake_address": null,
+        "amount": [
+          {
+            "unit": "lovelace",
+            "policy_id": null,
+            "asset_name": "lovelace",
+            "quantity": 99474193
+          }
+        ],
+        "data_hash": null,
+        "inline_datum": null,
+        "script_ref": null,
+        "reference_script_hash": null,
+        "inline_datum_json": null
+      }
+    ],
+    "utxo_count": 1,
+    "total_output": 99474193,
+    "fees": 175269,
+    "ttl": 0,
+    "auxiliary_data_hash": "5f6579deea3fa55a799fbdc615d763af327246f73bf7a6fe630b01d05e19e000",
+    "validity_interval_start": 0,
+    "script_data_hash": null,
+    "collateral_inputs": [],
+    "required_signers": null,
+    "netowrk_id": 0,
+    "collateral_return": null,
+    "total_collateral": null,
+    "reference_inputs": [],
+    "invalid": false
+  },
+  "included_output_count": 1,
+  "cardano_cli_version": "cardano-cli 10.1.1.0 - linux-aarch64 - ghc-9.6\ngit rev 1f63dbf2ab39e0b32bf6901dc203866d3e37de08"
+}

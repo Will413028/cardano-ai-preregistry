@@ -1,0 +1,11 @@
+{
+  "name": "preregistry-canonical-spike",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@noble/hashes": "2.0.1",
+    "cbor": "10.0.12",
+    "json-canonicalize": "3.0.1",
+    "node": "22.23.3"
+  }
+}

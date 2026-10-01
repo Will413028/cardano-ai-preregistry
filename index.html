@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Plan an AI experiment, then check that its disclosure matches its original commitment." />
+    <title>Cardano AI Preregistry · Local demo</title>
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="eyebrow">AI EXPERIMENT PREREGISTRY</span>
+        <h1>Plan first.<br />Disclose with context.</h1>
+        <p class="intro">Fix the experiment you intend to run. Later, compare the disclosed plan with its original commitment.</p>
+        <p class="demo-note">Local demo · No Cardano transaction or wallet signature. Records exist only in this tab and disappear on reload.</p>
+      </header>
+      <section aria-labelledby="plan-heading">
+        <div class="section-heading"><span class="step">01</span><h2 id="plan-heading">Register a plan</h2></div>
+        <p>Replace the example with your plan, including dataset versions, model settings, metrics and planned runs. The example dataset digest is a placeholder.</p>
+        <label for="network">Simulated network</label>
+        <select id="network"><option value="preprod">Preprod (test network)</option><option value="devnet">Local devnet (magic 42)</option></select>
+        <label for="manifest">Experiment manifest (JSON)</label>
+        <textarea id="manifest" spellcheck="false" rows="18"></textarea>
+        <button id="commit" type="button">Create local commitment</button>
+        <p id="commit-message" role="status" aria-live="polite"></p>
+        <div id="commit-result" hidden>
+          <h3>Public commitment</h3>
+          <pre id="public-record"></pre>
+          <button id="download" class="secondary" type="button">Save private draft</button>
+          <p class="helper">The private draft contains your manifest and salt. Keep it private until disclosure. This demo fills it into the next section for local comparison.</p>
+        </div>
+      </section>
+      <section aria-labelledby="reveal-heading">
+        <div class="section-heading"><span class="step">02</span><h2 id="reveal-heading">Check a disclosure</h2></div>
+        <p>Paste a private draft from a commitment created in this tab. Comparing here does not publish files or announce a disclosure.</p>
+        <label for="reveal">Draft to compare (JSON)</label>
+        <textarea id="reveal" spellcheck="false" rows="12" placeholder="Your draft will appear here after registering."></textarea>
+        <button id="verify" type="button">Verify disclosure</button>
+        <div id="verification" role="status" aria-live="polite"></div>
+      </section>
+      <aside aria-labelledby="boundary-heading">
+        <h2 id="boundary-heading">What a commitment tells you</h2>
+        <p id="boundary"></p>
+      </aside>
+      <footer>Cardano AI Preregistry · Experimental, unvalidated MVP · MIT</footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

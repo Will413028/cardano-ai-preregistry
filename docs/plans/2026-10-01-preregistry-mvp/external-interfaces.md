@@ -1,0 +1,18 @@
+# 外部介面
+
+計畫：`../2026-10-01-preregistry-mvp.md`。所有查詢日期 2026-10-01。費率與上限會變動，每列附重查方法；步驟 2 已完成本機 devnet 實測（見 `spike-chain.md` 與 `chain-protocol-parameters.json`）：348 bytes、實付 175269 lovelace，公式最低 170693 lovelace。未量測 mainnet；以下公網資料仍需上線前重查。步驟 4 已依公開樣本範圍完成，見 `spike-indexing.md`；Koios 成功，Blockfrost 未帶 key 回 403。
+
+| ID | 介面 | 用途 | 已查到的限制與費用 | 來源（查詢 2026-10-01） | 重查方法 |
+|---|---|---|---|---|---|
+| E1 | Cardano 交易費與大小 | 提交 commitment | 費用 = `minFeeA × tx_size + minFeeB`；目前 `minFeeA = 44` lovelace／byte、`minFeeB = 155381` lovelace、`maxTxSize = 16384` bytes。估算：約 350–600 bytes 的單輸入單輸出含少量 metadata 交易 ≈ 0.17–0.18 ADA（估算，未實測） | [Cardano protocol parameters reference guide](https://docs.cardano.org/about-cardano/explore-more/parameter-guide)、[Cardanoscan protocol params](https://cardanoscan.io/protocolparams) | 步驟 2：在 preprod 送出實際交易，記錄 tx size 與 fee；`cardano-cli query protocol-parameters` 或資料提供者的 epoch parameters 端點 |
+| E2 | Cardano 交易 metadata | 以 metadata 承載 commitment（D3 選項 A） | 頂層 key 為整數 label；值為整數、字串、bytes、list、map；字串與 bytes 單一元素上限 64 bytes（256-bit hash 為 32 bytes，可放入）；label 使用登記於 CIP-10 | [Build with transaction metadata](https://developers.cardano.org/docs/transaction-metadata/)、[CIP-10](https://cips.cardano.org/cip/CIP-10)、[CIP-20](https://github.com/cardano-foundation/CIPs/blob/7b3d6f135c215f8729c43cbf38d6f23cbd611c35/CIP-0020/CIP-0020.md) | 重讀 CIP-10 registry；步驟 2 實測 |
+| E3 | Blockfrost API | 讀取／索引、送出交易（D9 選項 A） | 免費 STARTER 方案 50,000 requests／日，不需信用卡；需註冊取得 project id | [Blockfrost plans and billing](https://blockfrost.dev/overview/plans-and-billing) | 重讀方案頁 |
+| E4 | Koios API | 讀取／索引（D9 選項 A） | 公開層 5,000 requests／日；註冊的免費層 50,000 requests／日；單一 IP 每 10 秒同端點 100 次；request body 公開層 1 KB、註冊層 5 KB | [Koios pricing](https://koios.rest/tiers.html) | 重讀方案頁 |
+| E5 | 自架鏈資料堆疊（cardano-node＋db-sync、Ogmios＋Kupo、Oura 等） | 讀取／索引（D9 選項 B） | 不依賴第三方；需要同步節點的主機與儲存，成本未查 | [Builder Tools](https://developers.cardano.org/tools/) | 步驟 4 只記錄需求與成本來源，不安裝 |
+| E6 | 鏈下交易函式庫：Mesh、Lucid Evolution（TypeScript）、PyCardano（Python） | 建構與簽署交易（D11） | Mesh 與 Lucid Evolution 支援 CIP-30 瀏覽器錢包；PyCardano 不依賴 cardano-cli | [Mesh vs alternatives](https://meshjs.dev/guides/mesh-vs-alternatives)、[Lucid Evolution](https://github.com/Anastasia-Labs/lucid-evolution)、[Building on Cardano Without Haskell](https://cardanofoundation.org/blog/building-on-cardano-without-haskell) | 重讀各專案 release 頁 |
+| E7 | Cardano 測試網與 faucet | spike 與 MVP 驗收（D10） | Preview 與 Preprod 兩個測試網；官方 faucet 每次 10,000 tADA、每 24 小時一次，需過 captcha；另有本機 devnet 工具（如 Yaci DevKit）可不連公網 | [Testnet Faucet](https://developers.cardano.org/docs/integrate-cardano/testnet-faucet/)、[Testnets](https://developers.cardano.org/docs/get-started/networks/testnets/)、[yaci-devkit SDK 相容性測試](https://github.com/bloxbean/yaci-devkit/pull/194) | 重讀 faucet 頁 |
+| E8 | 隨機 salt 來源 | 產生 salt | Python `secrets.token_bytes()` 預設 32 bytes，文件稱一般用途足夠 | [Python secrets](https://docs.python.org/3/library/secrets.html) | — |
+| E9 | JSON 正規化：RFC 8785 JCS | manifest 正規化（D5 選項 A） | 排序 key、去空白、數字依 ECMAScript 序列化；限 I-JSON 子集；Python、Go、JS 有實作 | [RFC 8785](https://www.rfc-editor.org/info/rfc8785/)、[cyberphone/json-canonicalization](https://github.com/cyberphone/json-canonicalization)、[rfc8785 (PyPI)](https://pypi.org/project/rfc8785/) | — |
+| E10 | 非 Cardano 的公開時間戳（業界光譜參考，不在產品範圍） | D3 取捨比較 | OpenTimestamps：免費公開 calendar 以 Merkle 聚合後錨定 Bitcoin；Sigstore Rekor：透明日誌＋RFC 3161 TSA 時間戳 | [OpenTimestamps](https://opentimestamps.org/)、[Trusted Time in Sigstore](https://blog.sigstore.dev/trusted-time/)、[Rekor v2 GA](https://blog.sigstore.dev/rekor-v2-ga/) | — |
+
+本計畫的步驟不註冊第三方帳號、不呼叫付費 API；需要註冊（E3、E4 的 key、E7 的 faucet）的動作列在對應步驟的「需要人做的事」。

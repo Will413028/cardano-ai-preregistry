@@ -1,0 +1,171 @@
+[
+  {
+    "id": "jcs-sha256/concat/key-order-a",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "z": 2,
+      "a": 1
+    },
+    "canonical_hex": "7b2261223a312c227a223a327d",
+    "expected_hash": "e0c6ce6aee90ec7ee7424421a8d4708efe38ab2d0faa488ea9a27ca8b9e9cf03"
+  },
+  {
+    "id": "jcs-sha256/concat/key-order-b",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 2
+    },
+    "canonical_hex": "7b2261223a312c227a223a327d",
+    "expected_hash": "e0c6ce6aee90ec7ee7424421a8d4708efe38ab2d0faa488ea9a27ca8b9e9cf03"
+  },
+  {
+    "id": "jcs-sha256/concat/changed-value",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "a": 1,
+      "z": 3
+    },
+    "canonical_hex": "7b2261223a312c227a223a337d",
+    "expected_hash": "ce598cb627bcc42ed02c361fb13a4968fe9da5fa57136c9b66311cdb2b9e5c17"
+  },
+  {
+    "id": "jcs-sha256/concat/unicode",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "": "繁體中文",
+      "😀": "é",
+      "é": "é"
+    },
+    "canonical_hex": "7b22c3a9223a2265cc81222c22f09f9880223a22c3a9222c22ee8080223a22e7b981e9ab94e4b8ade69687227d",
+    "expected_hash": "1249652150c1230af91ca476ebf63f228a3e5505eaee1ab876510e458d6ddae7"
+  },
+  {
+    "id": "jcs-sha256/concat/float",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "temperature": 0.1,
+      "epsilon": 1e-07,
+      "integral": 1.0,
+      "negative_zero": -0.0
+    },
+    "canonical_hex": "7b22657073696c6f6e223a31652d372c22696e74656772616c223a312c226e656761746976655f7a65726f223a302c2274656d7065726174757265223a302e317d",
+    "expected_hash": "6a3bdb8a79610c8f3480ded37003c4a5d741a94bd792b78b09de33dc88f18555"
+  },
+  {
+    "id": "jcs-sha256/concat/safe-integer",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740991
+    },
+    "canonical_hex": "7b2273656564223a393030373139393235343734303939317d",
+    "expected_hash": "280f73977c5d4889c56dac0b23c439f093928f8bfaf4c24c9e2c04449d26916b"
+  },
+  {
+    "id": "jcs-sha256/concat/large-integer",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": 9007199254740993
+    },
+    "expected_error": "unsafe-number: use a decimal string"
+  },
+  {
+    "id": "jcs-sha256/concat/large-integer-string",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "seed": "9007199254740993"
+    },
+    "canonical_hex": "7b2273656564223a2239303037313939323534373430393933227d",
+    "expected_hash": "695de853851f8a4f32a1c87c727850019a79956e4c1a32195a824aa81da0bc09"
+  },
+  {
+    "id": "jcs-sha256/concat/empty-array",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "runs": []
+    },
+    "canonical_hex": "7b2272756e73223a5b5d7d",
+    "expected_hash": "a6abf8383e246241027d93ebfd9af48e70cf8373722ac5ab4b517d7a4fbb942a"
+  },
+  {
+    "id": "jcs-sha256/concat/nested",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {
+      "experiments": [
+        {
+          "config": {
+            "top_k": 5,
+            "temperature": 0.7
+          },
+          "planned_runs": 3
+        }
+      ],
+      "ok": true,
+      "nil": null
+    },
+    "canonical_hex": "7b226578706572696d656e7473223a5b7b22636f6e666967223a7b2274656d7065726174757265223a302e372c22746f705f6b223a357d2c22706c616e6e65645f72756e73223a337d5d2c226e696c223a6e756c6c2c226f6b223a747275657d",
+    "expected_hash": "790da23715a41daccb0c3b9b9f93e56718a598b33df0301979bd04842798e0d5"
+  },
+  {
+    "id": "jcs-sha256/concat/empty-object",
+    "format": "jcs-sha256",
+    "construction": "concat",
+    "domain_tag": "cardano-ai-preregistry:spike",
+    "format_version": 0,
+    "network": "devnet",
+    "salt_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "input": {},
+    "canonical_hex": "7b7d",
+    "expected_hash": "31b3879dd5d4575864de4169eb322cd38adf86336bacc9fd44bd211f46475c17"
+  }
+]

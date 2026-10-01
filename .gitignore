@@ -1,0 +1,21 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Local spike credentials, dependencies and devnet state
+*.skey
+*.vkey
+keys/
+spikes/**/.venv/
+spikes/**/node_modules/
+spikes/**/local/
+__pycache__/
+
+# Application build and test output
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo

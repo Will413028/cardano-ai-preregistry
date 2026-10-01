@@ -95,7 +95,7 @@
   - 驗收：每個來源三個查詢各有實際指令與輸出；需要 key 的來源記錄未授權成功驗收與官方端點，不能標成不支援。公開免費來源三種查詢至少一個成功；分頁與碰撞樣本有證據；request 估算附算式。自家 preprod 端到端讀回留步驟 6、8。不適用 mutation。
   - 停止條件：沒有任何免費來源能依 label 列出交易——停下回報，D3、D9、D12 需要重新評估。
   - 需要人做的事：本輪不註冊帳號或取得 key；若後續選需 key 的來源再另授權。
-- [ ] **5. Walking skeleton**（被擋於：P-授權；D1（選 A 時需步驟 1 完成且結論為繼續；選 C 時需步驟 1 的手動流程至少完成一輪且結論不是停止；選 B 時不擋）、D2、D5、D6、D11；只有 repo 擁有者能確認的前提：LICENSE（已確認 MIT））
+- [x] **5. Walking skeleton**（被擋於：P-授權；D1（選 A 時需步驟 1 完成且結論為繼續；選 C 時需步驟 1 的手動流程至少完成一輪且結論不是停止；選 B 時不擋）、D2、D5、D6、D11；只有 repo 擁有者能確認的前提：LICENSE（已確認 MIT））
   - 範圍：依 D11 建立專案結構、相依鎖定、lint、測試框架、CI（GitHub Actions）、離線驗收入口 `make check` 與網路驗收入口 `make integration`（CI 只跑前者）；依已決 D2=B 建立網頁端最薄路徑：使用者輸入 manifest，在瀏覽器內經 `canonicalize`→`encode_commitment`，建立同源 read proxy 的白名單與共用快取介面，步驟 8 接入真實 Koios 索引；以 fake `ChainWriter`／`ChainReader`（記憶體中模擬鏈）完成登記與揭露核對，網頁回報 match／mismatch 與驗證邊界文字；此步尚不接真實 CIP-30 簽署，真實錢包整合由步驟 6 接手。採用 D5、D6 選定格式的 `test-vectors.json` 搬進 repo 的測試資料。README 的「Development」段寫上已驗證的指令。
   - 消費端：`rg -n "canonicalize|encode_commitment|ChainWriter|ChainReader|verify_reveal" src tests`；目前為 `src/main.ts`、`src/verifier.ts`、`tests/unit/core.test.ts` 與 `tests/e2e/workflow.spec.ts`；後續步驟 6、7、8 使用相同核心介面。
   - 不能動：AGENTS.md 的產品範圍與驗證邊界段；README 不寫未實作的功能為已完成。
@@ -217,10 +217,10 @@ P-授權已確認；Will 指示先執行步驟 2、3（產出事實，不是產�
 | 步驟 | 狀態 | 已跑的驗收 | 未跑的驗收與原因 | commit |
 |---|---|---|---|---|
 | 1 產品風險驗證 | 跳過（D1=B） | 不適用 | 未進行需求驗證，依 Will 決定以發布驗證 | |
-| 2 Spike：鏈上承諾 | 完成 | devnet tx `8c2afcfa…`；348 bytes、175269 lovelace、2.825 秒包含、3.341 秒讀回；hash 相同；金鑰忽略規則通過，見 spike-chain.md | preprod/mainnet、合約與批次未測（非本機驗收範圍）；未跑公網 finality | 未 commit |
-| 3 Spike：正規化與 hash | 完成 | 66 向量：60 組 bytes/hash 一致、6 組同拒絕；key 順序與值變更各 6 組通過，見 spike-canonical.md | 無；不包含產品 schema 或 Merkle proof 驗收 | 未 commit |
-| 4 Spike：讀取與索引 | 完成（Will 選公開樣本範圍） | Koios 三類查詢、分頁尾頁成功；兩網路 123456789 碰撞；Blockfrost 無 key 三端點 403；見 spike-indexing.md | Blockfrost 成功讀取、自家 preprod 索引延遲、CORS 與熱門 label 全歷史排序未驗；後續按選定來源補 | 未 commit |
-| 5 Walking skeleton | 程式完成待驗收 | 本機 lint／TypeScript＋build、26 unit、4 Chromium e2e；2 mutation 被殺死；read-only Koios smoke；桌面／375px 畫面檢視通過 | GitHub Actions 未跑，待初始 commit／push 授權；真實 CIP-30／metadata、Koios adapter／索引屬後續步驟；見 walking-skeleton.md | 未 commit |
+| 2 Spike：鏈上承諾 | 完成 | devnet tx `8c2afcfa…`；348 bytes、175269 lovelace、2.825 秒包含、3.341 秒讀回；hash 相同；金鑰忽略規則通過，見 spike-chain.md | preprod/mainnet、合約與批次未測（非本機驗收範圍）；未跑公網 finality | `1cb5d5b` |
+| 3 Spike：正規化與 hash | 完成 | 66 向量：60 組 bytes/hash 一致、6 組同拒絕；key 順序與值變更各 6 組通過，見 spike-canonical.md | 無；不包含產品 schema 或 Merkle proof 驗收 | `1cb5d5b` |
+| 4 Spike：讀取與索引 | 完成（Will 選公開樣本範圍） | Koios 三類查詢、分頁尾頁成功；兩網路 123456789 碰撞；Blockfrost 無 key 三端點 403；見 spike-indexing.md | Blockfrost 成功讀取、自家 preprod 索引延遲、CORS 與熱門 label 全歷史排序未驗；後續按選定來源補 | `1cb5d5b` |
+| 5 Walking skeleton | 完成 | 本機與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36868041395) 的 lint／TypeScript＋build、26 unit、4 Chromium e2e、2 mutation 通過；本機 read-only Koios smoke、桌面／375px 檢視通過 | 真實 CIP-30／metadata、Koios adapter／索引屬後續步驟；見 walking-skeleton.md | `1cb5d5b` |
 | 6 切片：登記 | 未開始 | | | |
 | 7 切片：揭露與核對 | 未開始 | | | |
 | 8 切片：狀態介面 | 未開始 | | | |

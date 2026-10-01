@@ -57,17 +57,15 @@ Unicode、網路分離、讀回期限 mismatch、不可變 fake records、cache 
 初次 TypeScript 7 與 parser peer range 不合，改用相容的 TypeScript 5.9.3，
 不使用強制略過 peer dependency 的選項。
 
-## 未跑與接手
+## CI 驗收與接手
 
-GitHub Actions 尚未跑：repo 是 unborn `main`，初始 commit／push 尚待 Will
-授權。已唯讀確認 remote 是 `Will413028/cardano-ai-preregistry`，GitHub
-帳號 `Will413028` 對該 public repo 有 push 權限；送出前仍需再次核對遠端
-是否已有提交，避免覆蓋其他工作。
+Will 確認初始 commit／push 後，已再次核對帳號 `Will413028`、remote、
+`main` 與遠端無其他分支，建立 `1cb5d5b`（`feat: add local preregistry walking skeleton`）
+並正常 push。提交包含原有產品文件、計畫／spikes、MIT LICENSE，以及本步程式、測試與 CI。
 
-擬 initial commit：`feat: add local preregistry walking skeleton`，包含原有
-產品文件、已拍板計畫／spikes、MIT LICENSE，以及本步程式、測試與 CI。
-取得授權後：檢查 candidate diff、commit、正常 push 至 main、逐 job 查看 CI。
-只有 CI 通過才能把步驟 5 標為完成；目前為「程式完成待驗收」。
+[GitHub Actions run 36868041395](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36868041395)
+的 `offline-check` 與每個 step 均成功：Linux／Node 22.23.3 的 npm ci、Chromium 安裝、
+`make check`、`make mutations`。步驟 5 已完成；網路 smoke 僅本機跑，不是 CI 必要條件。
 
-ADR 仍待集中整理，沒有建立 `decisions/` 分類目錄。步驟 6 不能在步驟 5
-CI 未驗收時開工。未授權帳號註冊、真實金鑰、mainnet、部署或對外 CIP PR。
+下一步依計畫進入步驟 6，實作真實測試網登記與 CIP-30；本 demo 尚未接入真實鏈。
+ADR 仍待集中整理。未授權帳號註冊、真實金鑰、mainnet、部署或對外 CIP PR。

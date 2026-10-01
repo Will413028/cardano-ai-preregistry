@@ -45,8 +45,8 @@ make integration  # optional live, read-only Koios preprod smoke; no key
 ```
 
 After dependencies and Chromium are installed, `make check` and `make mutations`
-need no public-chain service. GitHub Actions uses the same checks; remote CI
-has not run yet. `make integration` queries an existing public sample, not an
+need no public-chain service. GitHub Actions uses the same checks; [the initial CI run](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36868041395)
+passed on Linux with Node 22.23.3. `make integration` queries an existing public sample, not an
 application commitment. The production build is a static demo; `/api/read`
 is currently a Vite development-only fixture route, not a deployed API.
 

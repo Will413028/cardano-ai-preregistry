@@ -12,16 +12,26 @@
         <span class="eyebrow">AI EXPERIMENT PREREGISTRY</span>
         <h1>Plan first.<br />Disclose with context.</h1>
         <p class="intro">Fix the experiment you intend to run. Later, compare the disclosed plan with its original commitment.</p>
-        <p class="demo-note">Local demo · No Cardano transaction or wallet signature. Records exist only in this tab and disappear on reload.</p>
+        <p class="demo-note">Experimental testnet app · Local demo records disappear on reload. Wallet registration submits public metadata to the selected test network; save your private draft first.</p>
       </header>
       <section aria-labelledby="plan-heading">
         <div class="section-heading"><span class="step">01</span><h2 id="plan-heading">Register a plan</h2></div>
         <p>Replace the example with your plan, including dataset versions, model settings, metrics and planned runs. The example dataset digest is a placeholder.</p>
-        <label for="network">Simulated network</label>
+        <label for="network">Network</label>
         <select id="network"><option value="preprod">Preprod (test network)</option><option value="devnet">Local devnet (magic 42)</option></select>
         <label for="manifest">Experiment manifest (JSON)</label>
         <textarea id="manifest" spellcheck="false" rows="18"></textarea>
         <button id="commit" type="button">Create local commitment</button>
+        <div class="wallet-controls">
+          <label for="wallet">Testnet browser wallet</label>
+          <select id="wallet"><option value="">Refresh to discover wallets</option></select>
+          <button id="refresh-wallets" class="secondary" type="button">Refresh wallets</button>
+          <button id="prepare" class="secondary" type="button">Prepare testnet registration</button>
+          <p class="helper">Switch your wallet to the selected network. Fee limit: 0.3 testADA. You need an ADA-only UTxO of at least 3 testADA. No mainnet registration.</p>
+          <p id="prepared-summary" role="status"></p>
+          <button id="sign-submit" type="button" disabled>Sign and submit to testnet</button>
+          <button id="readback" class="secondary" type="button" disabled>Check chain confirmation</button>
+        </div>
         <p id="commit-message" role="status" aria-live="polite"></p>
         <div id="commit-result" hidden>
           <h3>Public commitment</h3>
@@ -35,6 +45,8 @@
         <p>Paste a private draft from a commitment created in this tab. Comparing here does not publish files or announce a disclosure.</p>
         <label for="reveal">Draft to compare (JSON)</label>
         <textarea id="reveal" spellcheck="false" rows="12" placeholder="Your draft will appear here after registering."></textarea>
+        <label for="verify-source">Read commitment from</label>
+        <select id="verify-source"><option value="local">Local demo in this tab</option><option value="chain">Selected test network in draft</option></select>
         <button id="verify" type="button">Verify disclosure</button>
         <div id="verification" role="status" aria-live="polite"></div>
       </section>

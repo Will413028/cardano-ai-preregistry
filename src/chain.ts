@@ -11,7 +11,7 @@ export interface CommitmentRecord extends CommitmentPayload {
   tx_hash: string;
   block_time: string;
   registrant: string;
-  source: 'fake';
+  source: 'fake' | 'devnet' | 'preprod';
 }
 export interface ChainWriter { commit(payload: CommitmentPayload): Promise<CommitmentRecord>; }
 export interface ChainReader { get_commitment(tx_hash: string, network: Network): Promise<CommitmentRecord | null>; }

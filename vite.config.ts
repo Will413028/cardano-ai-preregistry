@@ -1,5 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import { ReadProxy, MemoryReadCache, fixture_source, parse_public_query } from './src/read-proxy.ts';
+import { cardano_api_plugin } from './scripts/cardano-api.ts';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 function read_proxy_plugin(): Plugin {
   const proxy = new ReadProxy(fixture_source, new MemoryReadCache());
@@ -20,6 +22,6 @@ function read_proxy_plugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [read_proxy_plugin()],
+  plugins: [nodePolyfills({ globals: { Buffer: false, global: false, process: false } }), read_proxy_plugin(), cardano_api_plugin()],
   server: { fs: { deny: ['.env', '.env.*', '**/.git/**', '**/*.{skey,vkey,key,pem,crt}', '**/spikes/**/local/**', '**/spikes/**/.venv/**'] } },
 });

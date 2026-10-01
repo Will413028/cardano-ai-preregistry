@@ -6,7 +6,7 @@ test('register then match, change a setting then mismatch without disclosing ove
   page.on('request', req => requests.push({ url: req.url(), body: req.postData() ?? '' }));
   page.on('websocket', socket => { socket.on('framesent', event => websockets.push(String(event.payload))); });
   await page.goto('/');
-  await expect(page.getByText('Local demo · No Cardano transaction')).toBeVisible();
+  await expect(page.getByText('Local demo records disappear on reload.')).toBeVisible();
   const manifest = JSON.parse(await page.locator('#manifest').inputValue());
   manifest.title = 'PRIVATE-TITLE-DO-NOT-TRANSMIT';
   manifest.experiments[0].settings.private_marker = 'PRIVATE-SETTING-DO-NOT-TRANSMIT';

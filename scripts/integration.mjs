@@ -1,4 +1,12 @@
-// Optional live read-only smoke test. No key, wallet or transaction submission.
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+// Explicit opt-in sends one transaction only to the authorized local devnet.
+if (process.env.PREREGISTRY_DEVNET === '1') {
+  const result = spawnSync(process.execPath, ['--experimental-strip-types', fileURLToPath(new URL('./register-devnet.ts', import.meta.url))], { stdio: 'inherit', timeout: 300000 });
+  if (result.error) throw result.error;
+  process.exit(result.status ?? 1);
+}
+// Default remains a public read-only smoke test.
 const url = 'https://preprod.koios.rest/api/v1/tx_by_metalabel?_label=123456789&limit=1';
 const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
 if (!response.ok) throw new Error('Koios HTTP ' + response.status);

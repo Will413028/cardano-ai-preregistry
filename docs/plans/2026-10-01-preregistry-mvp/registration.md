@@ -1,6 +1,6 @@
 # 步驟 6：測試網登記實作與驗收
 
-目前進行中；只有本機、mutation、devnet integration 與 CI 全部通過才勾選完成。
+步驟 6 已完成：本機、mutation、真實 devnet integration 與 Linux CI 全部通過。
 
 ## 產品路徑
 
@@ -57,7 +57,7 @@ metadata 欄位為 app、format_version、network、commitment_hash、reveal_dea
   metadata 只含白名單，private draft 留 ignored 本機檔案；簽署使用本機 CLI test key，不是真實 extension。
 - [初版 CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36878806615) 與
   [Yaci reader 修正 CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36882111225) 全數通過。
-  最後 UTxO 與 integration runner 修正的 CI 待驗收。
+  [最後 UTxO 與 integration runner 修正 CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36884486573) 也全數通過（commit `398652f`）。
 - 1280px desktop／375px mobile 截圖已檢視，375px 無橫向 overflow。
   實際 preprod Koios protocol parameters 讀取成功；公網 extension 簽署未驗收。
 

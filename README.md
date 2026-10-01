@@ -4,7 +4,7 @@ Help AI, RAG and agent developers preregister experiments and compare disclosed 
 
 ## Status
 
-The local TypeScript web app retains its browser-memory demo and adds Mesh/CIP-30 testnet registration: prepare a public metadata transaction, download the private draft, approve signing, submit and check chain confirmation. Browser fixtures and real-CBOR tests cover the wallet flow. Local devnet submission and independent readback are validated; final CI acceptance for this slice is pending. It does not publish disclosures or derive the complete registry states. No deployment or user validation exists.
+The local TypeScript web app retains its browser-memory demo and adds Mesh/CIP-30 testnet registration: prepare a public metadata transaction, download the private draft, approve signing, submit and check chain confirmation. Browser fixtures and real-CBOR tests cover the wallet flow. Local devnet submission and independent readback are validated; [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36884486573) passes the offline checks and mutations for this slice. It does not publish disclosures or derive the complete registry states. No deployment or user validation exists.
 
 The approved MVP uses transaction metadata on preprod/local devnet; complete Koios indexing follows in a later step. See [the MVP plan](docs/plans/2026-10-01-preregistry-mvp.md), [registration acceptance](docs/plans/2026-10-01-preregistry-mvp/registration.md) and [commitment v1](docs/commitment-v1.md).
 

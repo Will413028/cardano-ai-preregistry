@@ -102,7 +102,7 @@
   - 驗收：`make check` 本機與 CI 都綠（CI 的每個 job 各自看結論）；瀏覽器 e2e 測試「透過網頁登記後，以同一 manifest＋salt 核對得 match、改一個欄位得 mismatch」；攔截網頁 network request，確認揭露前沒有送出 manifest 或 salt（I3）；mutation：把 `verify_reveal` 改成永遠回傳 match，e2e 測試必須失敗；把 `canonicalize` 改成不排序 key，測試向量測試必須失敗。
   - 停止條件：被擋於的任一項未決；D2 的結論需要的入口形態與本步範圍描述不符時，先依 phase-plan 第 5 節改寫本步範圍與驗收再開工；LICENSE 未定時可完成本機工作，但 CI 驗收要等 push，進度記「程式完成待驗收」。
   - 需要人做的事：LICENSE 已選 MIT；初始 commit 與 push 需 repo 擁有者授權（repo 目前沒有任何 commit，先確認 repo 擁有者的初始 commit 是否已建立，避免歷史分岔）。
-- [ ] **6. 切片：登記（真實測試網 commitment）**（被擋於：步驟 5；D3、D4、D5、D6、D8（公開期限欄位）、D10、D12）
+- [x] **6. 切片：登記（真實測試網 commitment）**（被擋於：步驟 5；D3、D4、D5、D6、D8（公開期限欄位）、D10、D12）
   - 範圍：依 D2=B 接通網頁與 CIP-30 錢包簽署（付費與身分依 D4）；依 D5、D6 實作 manifest schema v1 與 commitment 格式 v1；依 D3、D4、D12 實作真實 `ChainWriter`（測試網或本機 devnet）送出 commitment，payload 由白名單欄位建構並帶網路與公開 `reveal_deadline` 欄位（I3、I9、D8）；manifest 與 salt 存在使用者指定的本機位置（I3）；salt 每次以 CSPRNG 新產生（I8）；回傳 tx hash 與 commitment 紀錄（R10）。
   - 消費端：`rg -n "ChainWriter|encode_commitment|manifest_schema" src tests`（預計：`verify_reveal`、`registry`、`cli`、`web`）。
   - 不能動：I2 的編碼規則與已用於鏈上的測試向量；I3、I8、I9。
@@ -221,7 +221,7 @@ P-授權已確認；Will 指示先執行步驟 2、3（產出事實，不是產�
 | 3 Spike：正規化與 hash | 完成 | 66 向量：60 組 bytes/hash 一致、6 組同拒絕；key 順序與值變更各 6 組通過，見 spike-canonical.md | 無；不包含產品 schema 或 Merkle proof 驗收 | `1cb5d5b` |
 | 4 Spike：讀取與索引 | 完成（Will 選公開樣本範圍） | Koios 三類查詢、分頁尾頁成功；兩網路 123456789 碰撞；Blockfrost 無 key 三端點 403；見 spike-indexing.md | Blockfrost 成功讀取、自家 preprod 索引延遲、CORS 與熱門 label 全歷史排序未驗；後續按選定來源補 | `1cb5d5b` |
 | 5 Walking skeleton | 完成 | 本機與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36868041395) 的 lint／TypeScript＋build、26 unit、4 Chromium e2e、2 mutation 通過；本機 read-only Koios smoke、桌面／375px 檢視通過 | 真實 CIP-30／metadata、Koios adapter／索引屬後續步驟；見 walking-skeleton.md | `1cb5d5b` |
-| 6 切片：登記 | 進行中 | lint/build、46 unit、6 E2E、devnet fee176413／hash及deadline match；獨立審查已處理，見 registration.md | 5 mutation 通過；修正後 head CI 待驗收 | 52c23fd、a0e257a 已 push；最後修正待提交 |
+| 6 切片：登記 | 完成 | 本機與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36884486573) 的 lint/build、46 unit、6 E2E、5 mutation 通過；真實 devnet fee176413／hash、deadline、registrant match；獨立審查已處理，見 registration.md | 真實瀏覽器 extension／preprod 公網 finality 未測；揭露公告與完整索引屬後續步驟 | `52c23fd`、`a0e257a`、`398652f` |
 | 7 切片：揭露與核對 | 未開始 | | | |
 | 8 切片：狀態介面 | 未開始 | | | |
 | 9 硬化 | 未開始 | | | |

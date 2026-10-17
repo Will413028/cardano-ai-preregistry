@@ -4,6 +4,7 @@ export type PublicQuery =
   | { kind: 'protocol'; network: Network }
   | { kind: 'utxos'; network: Network; tx_hash: string }
   | { kind: 'commitment'; network: Network; tx_hash: string }
+  | { kind: 'announcement'; network: Network; tx_hash: string }
   | { kind: 'label'; network: Network; label: number; offset: number; limit: number }
   | { kind: 'address'; network: Network; address: string; offset: number; limit: number };
 export interface PublicSource { read(query: PublicQuery): Promise<unknown>; }
@@ -32,12 +33,12 @@ export function parse_public_query(url: URL): PublicQuery {
   const kind = params.get('kind');
   const network = params.get('network');
   if (network !== 'preprod' && network !== 'devnet') throw new Error('Unsupported query network.');
-  const allowed = kind === 'protocol' ? ['kind', 'network'] : kind === 'commitment' || kind === 'utxos' ? ['kind', 'network', 'tx_hash']
+  const allowed = kind === 'protocol' ? ['kind', 'network'] : kind === 'commitment' || kind === 'announcement' || kind === 'utxos' ? ['kind', 'network', 'tx_hash']
     : kind === 'label' ? ['kind', 'network', 'label', 'offset', 'limit']
     : kind === 'address' ? ['kind', 'network', 'address', 'offset', 'limit'] : [];
   for (const key of params.keys()) if (!allowed.includes(key) || params.getAll(key).length !== 1) throw new Error('Only whitelisted public query fields are accepted.');
   if (kind === 'protocol') return { kind, network };
-  if (kind === 'commitment' || kind === 'utxos') {
+  if (kind === 'commitment' || kind === 'announcement' || kind === 'utxos') {
     const tx_hash = params.get('tx_hash') ?? '';
     if (!/^[0-9a-f]{64}$/.test(tx_hash)) throw new Error('Invalid transaction hash.');
     return { kind, network, tx_hash };
@@ -81,5 +82,5 @@ export class ReadProxy {
 }
 
 export const fixture_source: PublicSource = {
-  async read(query) { return { source: 'fixture', network: query.network, data: query.kind === 'commitment' ? null : [] }; },
+  async read(query) { return { source: 'fixture', network: query.network, data: query.kind === 'commitment' || query.kind === 'announcement' ? null : [] }; },
 };

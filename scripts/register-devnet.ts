@@ -1,15 +1,19 @@
 /** Opt-in integration: uses only the local magic-42 node and ignored devnet keys. */
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { type AddressInfo } from 'node:net';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { YaciProvider, type UTxO } from '@meshsdk/core';
 import { sample_manifest } from '../src/manifest.ts';
-import { encode_commitment, hex, new_salt } from '../src/commitment.ts';
-import { prepare_registration, inspect_transaction } from '../src/mesh-wallet.ts';
-import { sign_and_submit } from '../src/registration.ts';
-import { read_commitment } from './cardano-api.ts';
-import { verify_reveal } from '../src/verifier.ts';
+import { encode_commitment, hex, new_salt, sha256 } from '../src/commitment.ts';
+import { prepare_announcement, prepare_registration, inspect_transaction } from '../src/mesh-wallet.ts';
+import { sign_and_submit, type PreparedRegistration } from '../src/registration.ts';
+import { read_announcement, read_commitment } from './cardano-api.ts';
+import { verify_announcement, verify_commitment, type FileFetcher } from '../src/verifier.ts';
+import { bundle_bytes, create_bundle, split_url } from '../src/disclosure.ts';
+import { type ChainReader } from '../src/chain.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const local = path.join(root, 'spikes/chain/local/work/registration');
@@ -35,32 +39,80 @@ const prepared = await prepare_registration(payload, { getNetworkId: async () =>
   { protocol: async () => provider.fetchProtocolParameters(), utxos: async (_network, hash) => provider.fetchUTxOs(hash) });
 const draft = { format_version: 1 as const, network: 'devnet' as const, tx_hash: prepared.tx_hash, manifest, salt_hex: hex(salt) };
 writeFileSync(path.join(local, 'private-draft.json'), JSON.stringify(draft), { mode: 0o600 });
-const started = Date.now();
-const tx_hash = await sign_and_submit(prepared, {
+const cli_wallet = (name: string) => ({
   getNetworkId: async () => 0,
-  signTx: async tx => {
-    writeFileSync(path.join(local, 'unsigned.json'), JSON.stringify({ type: 'Tx ConwayEra', description: '', cborHex: tx }));
-    cli('conway', 'transaction', 'sign', '--testnet-magic', '42', '--tx-file', '/work/registration/unsigned.json',
-      '--signing-key-file', '/work/keys/payment.skey', '--out-file', '/work/registration/signed.json');
-    return (JSON.parse(readFileSync(path.join(local, 'signed.json'), 'utf8')) as { cborHex: string }).cborHex;
+  signTx: async (tx: string) => {
+    writeFileSync(path.join(local, `${name}-unsigned.json`), JSON.stringify({ type: 'Tx ConwayEra', description: '', cborHex: tx }));
+    cli('conway', 'transaction', 'sign', '--testnet-magic', '42', '--tx-file', `/work/registration/${name}-unsigned.json`,
+      '--signing-key-file', '/work/keys/payment.skey', '--out-file', `/work/registration/${name}-signed.json`);
+    return (JSON.parse(readFileSync(path.join(local, `${name}-signed.json`), 'utf8')) as { cborHex: string }).cborHex;
   },
   submitTx: async () => {
-    cli('conway', 'transaction', 'submit', '--testnet-magic', '42', '--tx-file', '/work/registration/signed.json');
-    return cli('conway', 'transaction', 'txid', '--tx-file', '/work/registration/signed.json');
+    cli('conway', 'transaction', 'submit', '--testnet-magic', '42', '--tx-file', `/work/registration/${name}-signed.json`);
+    return cli('conway', 'transaction', 'txid', '--tx-file', `/work/registration/${name}-signed.json`);
   },
-}, inspect_transaction);
-let record = null;
-while (Date.now() - started < 180000) {
-  try { record = await read_commitment('devnet', tx_hash); } catch { /* Indexer may lag. */ }
-  if (record) break;
-  await new Promise(resolve => setTimeout(resolve, 2000));
+});
+async function poll<T>(read: () => Promise<T | null>, label: string): Promise<T> {
+  const started = Date.now();
+  while (Date.now() - started < 180000) {
+    try { const value = await read(); if (value) return value; } catch { /* Indexer may lag. */ }
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+  throw new Error(`Readback timed out for ${label}; retain the saved draft.`);
 }
-if (!record) throw new Error(`Readback timed out for ${tx_hash}; retain the saved draft.`);
-const verified = await verify_reveal(draft, { get_commitment: read_commitment_adapter });
-async function read_commitment_adapter(hash: string, network: 'devnet' | 'preprod') { return read_commitment(network, hash); }
+const reader: ChainReader = {
+  get_commitment: async (hash, network) => network === 'devnet' ? read_commitment('devnet', hash) : null,
+  get_announcement: async (hash, network) => network === 'devnet' ? read_announcement('devnet', hash) : null,
+};
+const started = Date.now();
+const tx_hash = await sign_and_submit(prepared, cli_wallet('registration'), inspect_transaction);
+const record = await poll(() => read_commitment('devnet', tx_hash), tx_hash);
+const verified = await verify_commitment(draft, reader);
 if (verified.status !== 'match' || record.registrant !== prepared.registrant || record.reveal_deadline !== manifest.reveal_deadline) throw new Error('Devnet readback mismatch.');
-const result = { network: 'devnet', network_magic: 42, tx_hash, fee_lovelace: prepared.fee,
-  commitment_hash: payload.commitment_hash, reveal_deadline: payload.reveal_deadline, record,
-  verified: verified.status, readback_ms: Date.now() - started, browser_extension_used: false };
-writeFileSync(path.join(root, 'docs/plans/2026-10-01-preregistry-mvp/registration-results.json'), JSON.stringify(result, null, 2) + '\n');
-console.log(JSON.stringify({ tx_hash, fee_lovelace: prepared.fee, verified: verified.status, readback_ms: result.readback_ms }));
+const readback_ms = Date.now() - started;
+
+// Step 7: host the bundle and one file on loopback, announce, then verify only from chain reads and those URLs.
+const hosted = new Map<string, Uint8Array>();
+const server = createServer((req, res) => {
+  const body = hosted.get(req.url ?? '');
+  res.writeHead(body ? 200 : 404, { 'Content-Type': 'application/octet-stream' }); res.end(body ?? '');
+});
+await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+try {
+  const file = new TextEncoder().encode('run,accuracy\n1,0.81\n2,0.79\n3,0.80\n');
+  const bundle = create_bundle(draft, [{ experiment_id: 'baseline', completed_runs: 3, metrics: { accuracy: 0.8 } }],
+    [{ path: 'results.csv', sha256: await sha256(file), url: `${base}/results.csv` }]);
+  hosted.set('/results.csv', file); hosted.set('/bundle.json', bundle_bytes(bundle));
+  writeFileSync(path.join(local, 'bundle.json'), bundle_bytes(bundle), { mode: 0o600 });
+  const announcement_payload = { app: 'cardano-ai-preregistry', format_version: 1, kind: 'reveal', network: 'devnet', commitment_tx_hash: tx_hash,
+    bundle_sha256: await sha256(bundle_bytes(bundle)), bundle_url: split_url(`${base}/bundle.json`) } as const;
+  const wallet = { getNetworkId: async () => 0, getChangeAddress: async () => address, getUtxos: async () => query() };
+  const announcement: PreparedRegistration = await poll(async () => {
+    try { return await prepare_announcement(announcement_payload, record.registrant, wallet, { protocol: async () => provider.fetchProtocolParameters(), utxos: async (_network, hash) => provider.fetchUTxOs(hash) }); }
+    catch { return null; } // Change output from the registration may not be indexed yet.
+  }, 'announcement inputs');
+  const announced_started = Date.now();
+  const announcement_hash = await sign_and_submit(announcement, cli_wallet('announcement'), inspect_transaction);
+  await poll(() => read_announcement('devnet', announcement_hash), announcement_hash);
+  const files: FileFetcher = { async fetch(url) { const r = await fetch(url); return r.ok ? new Uint8Array(await r.arrayBuffer()) : null; } };
+  const disclosure = await verify_announcement(announcement_hash, 'devnet', reader, files);
+  hosted.set('/results.csv', new TextEncoder().encode('run,accuracy\n1,0.99\n'));
+  const replaced = await verify_announcement(announcement_hash, 'devnet', reader, files);
+  hosted.delete('/bundle.json');
+  const missing = await verify_announcement(announcement_hash, 'devnet', reader, files);
+  if (disclosure.status !== 'match' || disclosure.registrant !== record.registrant || replaced.status !== 'mismatch' || missing.status !== 'files-unavailable') {
+    throw new Error(`Devnet disclosure mismatch: ${disclosure.status}/${replaced.status}/${missing.status}`);
+  }
+  const result = { network: 'devnet', network_magic: 42, tx_hash, fee_lovelace: prepared.fee,
+    commitment_hash: payload.commitment_hash, reveal_deadline: payload.reveal_deadline, record,
+    verified: verified.status, readback_ms, browser_extension_used: false };
+  writeFileSync(path.join(root, 'docs/plans/2026-10-01-preregistry-mvp/registration-results.json'), JSON.stringify(result, null, 2) + '\n');
+  const disclosure_result = { network: 'devnet', network_magic: 42, commitment_tx_hash: tx_hash, announcement_tx_hash: announcement_hash,
+    announcement_fee_lovelace: announcement.fee, bundle_sha256: announcement_payload.bundle_sha256, bundle_url_chunks: announcement_payload.bundle_url.length,
+    announced_at: disclosure.announced_at, registrant_matches: disclosure.registrant === record.registrant,
+    verified: disclosure.status, replaced_file: replaced.status, missing_bundle: missing.status,
+    announcement_readback_ms: Date.now() - announced_started, files_hosted_on: 'loopback http, removed after the run', browser_extension_used: false };
+  writeFileSync(path.join(root, 'docs/plans/2026-10-01-preregistry-mvp/disclosure-results.json'), JSON.stringify(disclosure_result, null, 2) + '\n');
+  console.log(JSON.stringify({ tx_hash, announcement_hash, fee_lovelace: prepared.fee, announcement_fee_lovelace: announcement.fee, verified: disclosure.status }));
+} finally { server.close(); }

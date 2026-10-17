@@ -3,7 +3,7 @@ import { BrowserWallet } from '@meshsdk/wallet';
 import { MeshTxBuilder } from '@meshsdk/transaction';
 import * as core from '@meshsdk/core-cst';
 import { type Protocol, type UTxO } from '@meshsdk/common';
-import { type CommitmentPayload } from './chain.ts';
+import { type AnnouncementPayload, type PublicPayload } from './chain.ts';
 import { check_transaction, METADATA_LABEL, type PreparedRegistration, type TransactionInspection } from './registration.ts';
 import { type Network } from './commitment.ts';
 
@@ -23,6 +23,12 @@ function json_metadata(value: unknown): unknown {
   if (value instanceof Uint8Array) throw new Error('Unexpected metadata byte string.');
   return value;
 }
+function key_hash(address: string): string | null {
+  try {
+    const decoded = core.Address.fromBech32(address);
+    return decoded.getProps().paymentPart?.type === core.CredentialType.KeyHash ? core.resolvePaymentKeyHash(address) : null;
+  } catch { return null; }
+}
 export function inspect_transaction(cbor: string): TransactionInspection {
   const tx = core.deserializeTx(cbor), body = tx.body(), aux = tx.auxiliaryData();
   if (!aux || core.computeAuxiliaryDataHash(aux.toCore()) !== body.auxiliaryDataHash()) throw new Error('Missing or changed auxiliary data.');
@@ -34,7 +40,11 @@ export function inspect_transaction(cbor: string): TransactionInspection {
     network_id: body.networkId() ?? 0,
   };
 }
-export async function prepare_registration(payload: CommitmentPayload, wallet: BuildWallet, data: PublicChainData): Promise<PreparedRegistration> {
+/** An announcement must be signed by the commitment's registrant, so only that key's inputs qualify. */
+export async function prepare_announcement(payload: AnnouncementPayload, registrant: string, wallet: BuildWallet, data: PublicChainData): Promise<PreparedRegistration> {
+  return prepare_registration(payload, wallet, data, registrant);
+}
+export async function prepare_registration(payload: PublicPayload, wallet: BuildWallet, data: PublicChainData, required_registrant?: string): Promise<PreparedRegistration> {
   if (await wallet.getNetworkId() !== 0) throw new Error('Mainnet wallets are not supported.');
   const address = await wallet.getChangeAddress();
   const decoded = core.Address.fromBech32(address);
@@ -42,9 +52,10 @@ export async function prepare_registration(payload: CommitmentPayload, wallet: B
   const all = await wallet.getUtxos();
   // One ADA-only input avoids spending unrelated tokens and bounds read requests.
   const candidates = all.filter(u => u.output.amount.length === 1 && u.output.amount[0]?.unit === 'lovelace' &&
-    BigInt(u.output.amount[0].quantity) >= 3000000n).sort((a, b) => Number(BigInt(b.output.amount[0]!.quantity) - BigInt(a.output.amount[0]!.quantity)));
+    BigInt(u.output.amount[0].quantity) >= 3000000n && (!required_registrant || key_hash(u.output.address) === required_registrant)).sort((a, b) => Number(BigInt(b.output.amount[0]!.quantity) - BigInt(a.output.amount[0]!.quantity)));
   const input = candidates[0];
-  if (!input) throw new Error('A funded ADA-only UTxO of at least 3 testADA is required.');
+  if (!input) throw new Error(required_registrant ? 'Use the wallet that registered the commitment; it needs an ADA-only UTxO of at least 3 testADA on the registrant key.'
+    : 'A funded ADA-only UTxO of at least 3 testADA is required.');
   const input_address = core.Address.fromBech32(input.output.address);
   if (input_address.getNetworkId() !== 0 || input_address.getProps().paymentPart?.type !== core.CredentialType.KeyHash) throw new Error('A testnet payment key input is required.');
   const registrant = core.resolvePaymentKeyHash(input.output.address);

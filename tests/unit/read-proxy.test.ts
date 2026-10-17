@@ -8,6 +8,8 @@ it('allows only public fields, fixed networks and bounded pagination', () => {
   for (const extra of ['&salt=secret', '&manifest=secret', '&url=https://attacker.test', '&network=devnet']) {
     expect(() => parse_public_query(url('kind=commitment&network=preprod&tx_hash=' + 'a'.repeat(64) + extra))).toThrow();
   }
+  expect(parse_public_query(url('kind=announcement&network=devnet&tx_hash=' + 'b'.repeat(64)))).toEqual({ kind: 'announcement', network: 'devnet', tx_hash: 'b'.repeat(64) });
+  expect(() => parse_public_query(url('kind=announcement&network=devnet&tx_hash=' + 'b'.repeat(64) + '&bundle_url=x'))).toThrow();
   expect(() => parse_public_query(url('kind=label&network=preprod&label=674'))).toThrow();
   expect(() => parse_public_query(url('kind=label&network=preprod&label=65536&limit=101'))).toThrow();
 });

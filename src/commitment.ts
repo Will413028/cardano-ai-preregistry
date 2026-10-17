@@ -4,6 +4,10 @@ export const DOMAIN = 'cardano-ai-preregistry';
 export const FORMAT_VERSION = 1;
 export const NETWORKS = { preprod: 'preprod:1', devnet: 'devnet:42' } as const;
 export type Network = keyof typeof NETWORKS;
+/** Networks a reveal may claim; only NETWORKS carry commitments in this MVP. */
+export const CHAIN_NETWORKS = ['mainnet', 'preprod', 'preview', 'devnet'] as const;
+export type ChainNetwork = typeof CHAIN_NETWORKS[number];
+export function is_network(value: unknown): value is Network { return typeof value === 'string' && Object.hasOwn(NETWORKS, value); }
 
 export function hex(bytes: Uint8Array): string { return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join(''); }
 export function unhex(value: string, length: number): Uint8Array {

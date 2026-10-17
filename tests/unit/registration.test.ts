@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { public_metadata, sign_and_submit, METADATA_LABEL, type PreparedRegistration, type TransactionInspection } from '../../src/registration.ts';
 import { sample_manifest } from '../../src/manifest.ts';
+import { type AnnouncementPayload } from '../../src/chain.ts';
 import { encode_commitment, hex, new_salt } from '../../src/commitment.ts';
 
 const payload = { app: 'cardano-ai-preregistry', format_version: 1, network: 'devnet', commitment_hash: 'a'.repeat(64), reveal_deadline: '2026-12-01T00:00:00Z' } as const;
@@ -52,5 +53,20 @@ describe('testnet registration', () => {
     const switched = wallet(); switched.getNetworkId.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
     await expect(sign_and_submit(prepared, switched, view)).rejects.toThrow('network changed');
     expect(switched.submitTx).not.toHaveBeenCalled();
+  });
+});
+describe('testnet disclosure announcement', () => {
+  const announcement = { app: 'cardano-ai-preregistry', format_version: 1, kind: 'reveal', network: 'devnet', commitment_tx_hash: 'a'.repeat(64),
+    bundle_sha256: 'e'.repeat(64), bundle_url: ['https://files.example.test/bundle.json'] } satisfies AnnouncementPayload;
+  const announced: PreparedRegistration = { ...prepared, payload: announcement };
+  const announced_view = (): TransactionInspection => ({ ...view(), metadata: public_metadata(announcement) });
+  it('signs only the exact announcement metadata', async () => {
+    const w = wallet();
+    expect(await sign_and_submit(announced, w, announced_view)).toBe(prepared.tx_hash);
+    for (const metadata of [public_metadata(payload), { [METADATA_LABEL]: { ...announcement, bundle_sha256: 'f'.repeat(64) } }]) {
+      const rejected = wallet();
+      await expect(sign_and_submit(announced, rejected, () => ({ ...announced_view(), metadata }))).rejects.toThrow('differs');
+      expect(rejected.signTx).not.toHaveBeenCalled();
+    }
   });
 });

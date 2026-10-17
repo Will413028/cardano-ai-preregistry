@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { core } from '@meshsdk/core';
 import evidence from '../../docs/plans/2026-10-01-preregistry-mvp/chain-results.json';
-import { read_commitment } from '../../scripts/cardano-api.ts';
+import { read_announcement, read_commitment } from '../../scripts/cardano-api.ts';
 import { METADATA_LABEL } from '../../src/registration.ts';
 const expected_registrant = core.resolvePaymentKeyHash(evidence.tx_info.inputs[0]!.address);
 
@@ -25,4 +25,15 @@ test('devnet reads the observed Yaci transaction and metadata response shapes', 
   expect(record).toMatchObject({ ...payload, tx_hash: evidence.tx_id, registrant: expected_registrant,
     block_time: new Date(evidence.metadata_readback[0]!.block_time * 1000).toISOString() });
   expect(fetcher).toHaveBeenCalledTimes(2);
+});
+test('devnet separates announcements from commitments under the shared label', async () => {
+  const announcement = { app: 'cardano-ai-preregistry', format_version: 1, kind: 'reveal', network: 'devnet',
+    commitment_tx_hash: 'a'.repeat(64), bundle_sha256: 'b'.repeat(64), bundle_url: ['https://files.example.test/bundle.json'] };
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => Response.json(url.endsWith('/metadata')
+    ? [{ ...evidence.metadata_readback[0], label: String(METADATA_LABEL), json_metadata: announcement }] : evidence.tx_info)));
+  expect(await read_announcement('devnet', evidence.tx_id)).toMatchObject({ ...announcement, tx_hash: evidence.tx_id, registrant: expected_registrant });
+  expect(await read_commitment('devnet', evidence.tx_id)).toBeNull();
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => Response.json(url.endsWith('/metadata')
+    ? [{ ...evidence.metadata_readback[0], label: String(METADATA_LABEL), json_metadata: { ...announcement, salt_hex: 'c'.repeat(64) } }] : evidence.tx_info)));
+  await expect(read_announcement('devnet', evidence.tx_id)).rejects.toThrow('Invalid public announcement payload.');
 });

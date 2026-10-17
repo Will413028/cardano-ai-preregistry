@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { core, DEFAULT_PROTOCOL_PARAMETERS, type UTxO } from '@meshsdk/core';
-import { prepare_registration, inspect_transaction } from '../../src/mesh-wallet.ts';
+import { prepare_announcement, prepare_registration, inspect_transaction } from '../../src/mesh-wallet.ts';
+import { split_url } from '../../src/disclosure.ts';
 import { public_metadata } from '../../src/registration.ts';
 
 const address = core.buildEnterpriseAddress(0, core.Hash28ByteBase16('b'.repeat(56))).toAddress().toBech32();
@@ -42,4 +43,17 @@ it('uses the spent input identity when an HD wallet has a different change key',
 });
 it('rejects excessive estimated fees before asking the wallet to sign', async () => {
   await expect(prepare_registration(payload, wallet, { ...data, protocol: async () => ({ ...DEFAULT_PROTOCOL_PARAMETERS, minFeeB: 400000 }) })).rejects.toThrow('Fee exceeds');
+});
+const announcement = { app: 'cardano-ai-preregistry', format_version: 1, kind: 'reveal', network: 'devnet', commitment_tx_hash: 'e'.repeat(64),
+  bundle_sha256: 'f'.repeat(64), bundle_url: split_url('https://files.example.test/' + 'bundle-'.repeat(12) + '.json') } as const;
+it('builds a real announcement with chunked URL metadata signed by the registrant key', async () => {
+  const prepared = await prepare_announcement(announcement, 'b'.repeat(56), wallet, data);
+  const view = inspect_transaction(prepared.unsigned_tx);
+  expect(announcement.bundle_url.length).toBeGreaterThan(1);
+  expect(view.metadata).toEqual(public_metadata(announcement));
+  expect(view.signer_hashes).toEqual(['b'.repeat(56)]);
+  expect(view.fee).toBeLessThanOrEqual(300000n);
+}, 30000);
+it('refuses to announce from a wallet key other than the original registrant', async () => {
+  await expect(prepare_announcement(announcement, 'c'.repeat(56), wallet, data)).rejects.toThrow('registered the commitment');
 });

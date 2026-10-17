@@ -37,17 +37,49 @@
           <h3>Public commitment</h3>
           <pre id="public-record"></pre>
           <button id="download" class="secondary" type="button">Save private draft</button>
-          <p class="helper">The private draft contains your manifest and salt. Keep it private until disclosure. This demo fills it into the next section for local comparison.</p>
+          <p class="helper">The private draft contains your manifest and salt. Keep it private until disclosure. This demo fills it into the next section to prepare a disclosure.</p>
+        </div>
+      </section>
+      <section aria-labelledby="disclose-heading">
+        <div class="section-heading"><span class="step">02</span><h2 id="disclose-heading">Prepare a disclosure</h2></div>
+        <p>After your runs, add results and the files you will publish. The bundle contains your manifest and salt, so it becomes public once you host it.</p>
+        <label for="reveal">Private draft (JSON)</label>
+        <textarea id="reveal" spellcheck="false" rows="10" placeholder="Your draft will appear here after registering."></textarea>
+        <label for="results">Results (JSON)</label>
+        <textarea id="results" spellcheck="false" rows="6"></textarea>
+        <label for="disclosure-files">Files to disclose</label>
+        <input id="disclosure-files" type="file" multiple />
+        <p class="helper">Hashes are computed in this browser; files are not uploaded. Give each file the public https URL where you will host it.</p>
+        <div id="file-rows"></div>
+        <button id="create-bundle" type="button">Create disclosure bundle</button>
+        <p id="bundle-message" role="status" aria-live="polite"></p>
+        <div id="bundle-result" hidden>
+          <p>Bundle SHA-256: <code id="bundle-hash"></code></p>
+          <button id="download-bundle" class="secondary" type="button">Download bundle</button>
+          <p class="helper">Host this exact file yourself. Changing any byte changes its hash and the announcement will no longer match.</p>
+          <label for="bundle-url">Public bundle URL</label>
+          <input id="bundle-url" type="url" placeholder="https://example.org/bundle.json" />
+          <button id="announce-local" class="secondary" type="button">Announce in local demo</button>
+          <button id="prepare-announcement" class="secondary" type="button">Prepare testnet announcement</button>
+          <button id="sign-announcement" type="button" disabled>Sign and submit announcement</button>
+          <p class="helper">Use the wallet that registered the commitment. The announcement publishes the commitment transaction, bundle hash and URL; it does not prove the files stay available.</p>
+          <p id="announce-message" role="status" aria-live="polite"></p>
+          <pre id="announcement-record" hidden></pre>
         </div>
       </section>
       <section aria-labelledby="reveal-heading">
-        <div class="section-heading"><span class="step">02</span><h2 id="reveal-heading">Check a disclosure</h2></div>
-        <p>Paste a private draft from a commitment created in this tab. Comparing here does not publish files or announce a disclosure.</p>
-        <label for="reveal">Draft to compare (JSON)</label>
-        <textarea id="reveal" spellcheck="false" rows="12" placeholder="Your draft will appear here after registering."></textarea>
-        <label for="verify-source">Read commitment from</label>
-        <select id="verify-source"><option value="local">Local demo in this tab</option><option value="chain">Selected test network in draft</option></select>
-        <button id="verify" type="button">Verify disclosure</button>
+        <div class="section-heading"><span class="step">03</span><h2 id="reveal-heading">Verify a disclosure</h2></div>
+        <p>Check a bundle directly, or check an on-chain announcement, its signer and the hosted bundle. Disclosed files are fetched from their own URLs.</p>
+        <label for="verify-source">Read chain records from</label>
+        <select id="verify-source"><option value="local">Local demo in this tab</option><option value="chain">Selected test network in record</option></select>
+        <label for="bundle">Disclosure bundle (JSON)</label>
+        <textarea id="bundle" spellcheck="false" rows="10" placeholder="Paste a disclosure bundle."></textarea>
+        <button id="verify" type="button">Verify bundle</button>
+        <label for="announcement-tx">Announcement transaction hash</label>
+        <input id="announcement-tx" type="text" spellcheck="false" />
+        <label for="announcement-network">Announcement network</label>
+        <select id="announcement-network"><option value="preprod">Preprod (test network)</option><option value="devnet">Local devnet (magic 42)</option></select>
+        <button id="verify-announcement" class="secondary" type="button">Verify announcement</button>
         <div id="verification" role="status" aria-live="polite"></div>
       </section>
       <aside aria-labelledby="boundary-heading">

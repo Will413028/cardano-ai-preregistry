@@ -1,5 +1,5 @@
 import { type Plugin } from 'vite';
-import { validate_payload, type CommitmentRecord } from '../src/chain.ts';
+import { is_announcement, validate_announcement, validate_payload, type AnnouncementRecord, type CommitmentRecord } from '../src/chain.ts';
 import { METADATA_LABEL } from '../src/registration.ts';
 import { type Network } from '../src/commitment.ts';
 import { ReadProxy, MemoryReadCache, parse_public_query, type PublicQuery } from '../src/read-proxy.ts';
@@ -13,7 +13,9 @@ async function upstream(url: string, body?: object): Promise<unknown> {
   if (!response.ok) throw new Error('Chain provider unavailable.');
   return response.json();
 }
-export async function read_commitment(network: Network, hash: string): Promise<CommitmentRecord | null> {
+interface PublicTx { payload: unknown; time: number; registrant: string; }
+/** Reads label METADATA_LABEL from one valid transaction and derives its single payment-key registrant. */
+async function read_public_tx(network: Network, hash: string): Promise<PublicTx | null> {
   const { core } = await import('@meshsdk/core');
   let payload: unknown, time: number, addresses: string[];
   if (network === 'devnet') {
@@ -36,8 +38,7 @@ export async function read_commitment(network: Network, hash: string): Promise<C
     if (!payload) return null;
     time = record.tx_timestamp; addresses = record.inputs.map(i => i.payment_addr.bech32);
   }
-  const public_payload = validate_payload(payload as Parameters<typeof validate_payload>[0]);
-  if (public_payload.network !== network || !Number.isSafeInteger(time)) throw new Error('Invalid commitment context.');
+  if (!Number.isSafeInteger(time)) throw new Error('Invalid commitment context.');
   // Only key-spending transactions with one payment identity are supported.
   const keys = addresses.map(address => {
     const decoded = core.Address.fromBech32(address);
@@ -46,7 +47,23 @@ export async function read_commitment(network: Network, hash: string): Promise<C
     return core.resolvePaymentKeyHash(address);
   });
   if (!keys.length || new Set(keys).size !== 1) throw new Error('Ambiguous transaction registrant.');
-  return { ...public_payload, tx_hash: hash, block_time: new Date(time * 1000).toISOString(), registrant: keys[0]!, source: network };
+  return { payload, time, registrant: keys[0]! };
+}
+const context = (network: Network, hash: string, tx: PublicTx) =>
+  ({ tx_hash: hash, block_time: new Date(tx.time * 1000).toISOString(), registrant: tx.registrant, source: network });
+export async function read_commitment(network: Network, hash: string): Promise<CommitmentRecord | null> {
+  const tx = await read_public_tx(network, hash);
+  if (!tx || is_announcement(tx.payload)) return null;
+  const public_payload = validate_payload(tx.payload as Parameters<typeof validate_payload>[0]);
+  if (public_payload.network !== network) throw new Error('Invalid commitment context.');
+  return { ...public_payload, ...context(network, hash, tx) };
+}
+export async function read_announcement(network: Network, hash: string): Promise<AnnouncementRecord | null> {
+  const tx = await read_public_tx(network, hash);
+  if (!tx || !is_announcement(tx.payload)) return null;
+  const public_payload = validate_announcement(tx.payload as Parameters<typeof validate_announcement>[0]);
+  if (public_payload.network !== network) throw new Error('Invalid announcement context.');
+  return { ...public_payload, ...context(network, hash, tx) };
 }
 
 export function cardano_api_plugin(): Plugin {
@@ -62,6 +79,7 @@ export function cardano_api_plugin(): Plugin {
     if (query.kind === 'protocol') return provider.fetchProtocolParameters();
     if (query.kind === 'utxos') return provider.fetchUTxOs(query.tx_hash);
     if (query.kind === 'commitment') return read_commitment(network, query.tx_hash);
+    if (query.kind === 'announcement') return read_announcement(network, query.tx_hash);
     throw new Error('Index queries are implemented in step 8.');
   } }, new MemoryReadCache());
   return { name: 'public-cardano-reads', configureServer(server) {

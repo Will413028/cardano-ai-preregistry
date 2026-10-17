@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { canonicalize, parse_json, sample_manifest, validate_manifest } from '../../src/manifest';
 import { DOMAIN, encode_bytes, encode_commitment, hex, new_salt, sha256, unhex } from '../../src/commitment';
 import { FakeChain, type CommitmentPayload } from '../../src/chain';
-import { verify_reveal, VERIFICATION_BOUNDARY, type RevealDraft } from '../../src/verifier';
+import { verify_commitment, VERIFICATION_BOUNDARY, type RevealDraft } from '../../src/verifier';
 import spike_vectors from '../fixtures/spike-vectors.json';
 import v1_vectors from '../fixtures/commitment-v1.json';
 
@@ -60,19 +60,19 @@ async function registered() {
 describe('fake-chain registration and independent verifier', () => {
   it('matches the original and rejects changed settings, salt, deadline and network', async () => {
     const { chain, reveal } = await registered();
-    const match = await verify_reveal(reveal, chain);
+    const match = await verify_commitment(reveal, chain);
     expect(match.status).toBe('match'); expect(match.boundary).toBe(VERIFICATION_BOUNDARY); expect(match.network).toBe('preprod');
     const changed = structuredClone(reveal); changed.manifest.experiments[0].settings.temperature = 0.8;
-    expect((await verify_reveal(changed, chain)).status).toBe('mismatch');
+    expect((await verify_commitment(changed, chain)).status).toBe('mismatch');
     changed.manifest = structuredClone(reveal.manifest); changed.salt_hex = 'b'.repeat(64);
-    expect((await verify_reveal(changed, chain)).status).toBe('mismatch');
-    expect((await verify_reveal({ ...reveal, network: 'devnet' }, chain)).status).toBe('not-found');
-    expect((await verify_reveal({ ...reveal, format_version: 2 }, chain)).status).toBe('invalid');
+    expect((await verify_commitment(changed, chain)).status).toBe('mismatch');
+    expect((await verify_commitment({ ...reveal, network: 'devnet' }, chain)).status).toBe('not-found');
+    expect((await verify_commitment({ ...reveal, format_version: 2 }, chain)).status).toBe('invalid');
   });
   it('compares the public deadline even when the manifest hash matches', async () => {
     const { record, reveal } = await registered();
-    const reader = { async get_commitment() { return { ...record, reveal_deadline: '2031-01-01T00:00:00Z' }; } };
-    expect((await verify_reveal(reveal, reader)).status).toBe('mismatch');
+    const reader = { async get_commitment() { return { ...record, reveal_deadline: '2031-01-01T00:00:00Z' }; }, async get_announcement() { return null; } };
+    expect((await verify_commitment(reveal, reader)).status).toBe('mismatch');
   });
   it('new commitments use fresh salt and domain/network-separated hashes', async () => {
     const a = new_salt(), b = new_salt();
@@ -87,12 +87,12 @@ describe('fake-chain registration and independent verifier', () => {
     expect(JSON.stringify(record)).not.toContain(reveal.manifest.title);
     await expect(chain.commit({ ...payload, manifest: reveal.manifest } as CommitmentPayload)).rejects.toThrow();
     record.commitment_hash = '0'.repeat(64);
-    expect((await verify_reveal(reveal, chain)).status).toBe('match');
+    expect((await verify_commitment(reveal, chain)).status).toBe('match');
   });
   it('always includes the boundary on malformed or missing commitments', async () => {
     const { chain, reveal } = await registered();
     for (const input of [null, { ...reveal, salt_hex: 'broken' }, { ...reveal, tx_hash: '0'.repeat(64) }]) {
-      const result = await verify_reveal(input, chain);
+      const result = await verify_commitment(input, chain);
       expect(result.status).not.toBe('match'); expect(result.boundary).toBe(VERIFICATION_BOUNDARY);
     }
   });

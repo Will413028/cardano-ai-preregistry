@@ -1,4 +1,4 @@
-import { validate_payload, type CommitmentPayload } from './chain.ts';
+import { validate_public_payload, type PublicPayload } from './chain.ts';
 import { canonicalize, type Json } from './manifest.ts';
 
 export const METADATA_LABEL = 86741;
@@ -17,21 +17,21 @@ export interface RegistrationWallet {
 }
 export interface PreparedRegistration {
   unsigned_tx: string;
-  payload: CommitmentPayload;
+  payload: PublicPayload;
   registrant: string;
   fee: string;
   tx_hash: string;
 }
 export type InspectTransaction = (tx: string) => TransactionInspection;
 
-export function public_metadata(payload: CommitmentPayload): Record<string, CommitmentPayload> {
-  return { [METADATA_LABEL]: validate_payload(payload) };
+export function public_metadata(payload: PublicPayload): Record<string, PublicPayload> {
+  return { [METADATA_LABEL]: validate_public_payload(payload) };
 }
-export function check_transaction(tx: string, payload: CommitmentPayload, registrant: string, inspect: InspectTransaction): TransactionInspection {
+export function check_transaction(tx: string, payload: PublicPayload, registrant: string, inspect: InspectTransaction): TransactionInspection {
   const view = inspect(tx);
   if (view.network_id !== 0) throw new Error('Only testnet transactions are allowed.');
   if (view.fee < 0n || view.fee > MAX_FEE) throw new Error('Fee exceeds the 300000 lovelace limit.');
-  if (canonicalize(view.metadata as Json) !== canonicalize(public_metadata(payload) as unknown as Json)) throw new Error('Transaction metadata differs from the public commitment.');
+  if (canonicalize(view.metadata as Json) !== canonicalize(public_metadata(payload) as unknown as Json)) throw new Error('Transaction metadata differs from the public payload.');
   if (!view.signer_hashes.includes(registrant)) throw new Error('Transaction must require the registrant payment key.');
   return view;
 }

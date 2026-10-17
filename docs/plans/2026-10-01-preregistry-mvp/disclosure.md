@@ -28,7 +28,7 @@ local demo 的公告由 FakeChain 產生，不是鏈上證據。
 
 ## 驗收結果
 
-- `make check`（Node 22.23.3）：lint、TypeScript／build、66 unit、8 Chromium E2E 全數通過。
+- `make check`（Node 22.23.3）：lint、TypeScript／build、66 unit、8 Chromium E2E 全數通過；[Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/39063030487)（commit `575f2cb`）的 `make check` 與 `make mutations` 也全數通過。
 - 對抗測試（`tests/unit/disclosure.test.ts`）：
   - 竄改 manifest 一個欄位或換 salt：`mismatch`。
   - 換檔：`mismatch`，該檔標 mismatch。

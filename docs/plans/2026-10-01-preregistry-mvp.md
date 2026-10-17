@@ -222,7 +222,7 @@ P-授權已確認；Will 指示先執行步驟 2、3（產出事實，不是產�
 | 4 Spike：讀取與索引 | 完成（Will 選公開樣本範圍） | Koios 三類查詢、分頁尾頁成功；兩網路 123456789 碰撞；Blockfrost 無 key 三端點 403；見 spike-indexing.md | Blockfrost 成功讀取、自家 preprod 索引延遲、CORS 與熱門 label 全歷史排序未驗；後續按選定來源補 | `1cb5d5b` |
 | 5 Walking skeleton | 完成 | 本機與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36868041395) 的 lint／TypeScript＋build、26 unit、4 Chromium e2e、2 mutation 通過；本機 read-only Koios smoke、桌面／375px 檢視通過 | 真實 CIP-30／metadata、Koios adapter／索引屬後續步驟；見 walking-skeleton.md | `1cb5d5b` |
 | 6 切片：登記 | 完成 | 本機與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36884486573) 的 lint/build、46 unit、6 E2E、5 mutation 通過；真實 devnet fee176413／hash、deadline、registrant match；獨立審查已處理，見 registration.md | 真實瀏覽器 extension／preprod 公網 finality 未測；揭露公告與完整索引屬後續步驟 | `52c23fd`、`a0e257a`、`398652f` |
-| 7 切片：揭露與核對 | 完成 | 本機 Node 22 的 lint／build、66 unit、8 E2E、8 mutation 通過；真實 devnet 登記＋公告（fee 186269、URL 3 段）以 Yaci reader 與 loopback 託管核對 match，換檔 mismatch、移除 bundle files-unavailable；Koios reader read-only 通過；獨立審查已處理，見 disclosure.md | Linux CI 待 push 後記錄；preprod extension 簽署、公網託管與 CORS、Koios 解析真實 app 公告未測；網頁鏈上讀取經同源 proxy（D9 與 I4 的張力），交 Will 決定 | `8fd0123`、`a4b7881` |
+| 7 切片：揭露與核對 | 完成 | 本機 Node 22 與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/39063030487) 的 lint／build、66 unit、8 E2E、8 mutation 通過；真實 devnet 登記＋公告（fee 186269、URL 3 段）以 Yaci reader 與 loopback 託管核對 match，換檔 mismatch、移除 bundle files-unavailable；Koios reader read-only 通過；獨立審查已處理，見 disclosure.md | preprod extension 簽署、公網託管與 CORS、Koios 解析真實 app 公告未測；網頁鏈上讀取經同源 proxy（D9 與 I4 的張力），交 Will 決定 | `8fd0123`、`a4b7881`、`575f2cb` |
 | 8 切片：狀態介面 | 未開始 | | | |
 | 9 硬化 | 未開始 | | | |
 | 10 收尾 | 未開始 | | | |

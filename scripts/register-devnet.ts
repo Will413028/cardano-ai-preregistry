@@ -83,10 +83,12 @@ try {
   const file = new TextEncoder().encode('run,accuracy\n1,0.81\n2,0.79\n3,0.80\n');
   const bundle = create_bundle(draft, [{ experiment_id: 'baseline', completed_runs: 3, metrics: { accuracy: 0.8 } }],
     [{ path: 'results.csv', sha256: await sha256(file), url: `${base}/results.csv` }]);
-  hosted.set('/results.csv', file); hosted.set('/bundle.json', bundle_bytes(bundle));
+  // A long path forces the multi-chunk URL metadata encoding through the real node and indexer.
+  const bundle_path = `/disclosures/${tx_hash}/${'bundle-'.repeat(6)}v1.json`;
+  hosted.set('/results.csv', file); hosted.set(bundle_path, bundle_bytes(bundle));
   writeFileSync(path.join(local, 'bundle.json'), bundle_bytes(bundle), { mode: 0o600 });
   const announcement_payload = { app: 'cardano-ai-preregistry', format_version: 1, kind: 'reveal', network: 'devnet', commitment_tx_hash: tx_hash,
-    bundle_sha256: await sha256(bundle_bytes(bundle)), bundle_url: split_url(`${base}/bundle.json`) } as const;
+    bundle_sha256: await sha256(bundle_bytes(bundle)), bundle_url: split_url(`${base}${bundle_path}`) } as const;
   const wallet = { getNetworkId: async () => 0, getChangeAddress: async () => address, getUtxos: async () => query() };
   const announcement: PreparedRegistration = await poll(async () => {
     try { return await prepare_announcement(announcement_payload, record.registrant, wallet, { protocol: async () => provider.fetchProtocolParameters(), utxos: async (_network, hash) => provider.fetchUTxOs(hash) }); }
@@ -99,16 +101,15 @@ try {
   const disclosure = await verify_announcement(announcement_hash, 'devnet', reader, files);
   hosted.set('/results.csv', new TextEncoder().encode('run,accuracy\n1,0.99\n'));
   const replaced = await verify_announcement(announcement_hash, 'devnet', reader, files);
-  hosted.delete('/bundle.json');
+  hosted.delete(bundle_path);
   const missing = await verify_announcement(announcement_hash, 'devnet', reader, files);
-  if (disclosure.status !== 'match' || disclosure.registrant !== record.registrant || replaced.status !== 'mismatch' || missing.status !== 'files-unavailable') {
+  if (announcement_payload.bundle_url.length < 2 || disclosure.status !== 'match' || disclosure.registrant !== record.registrant || replaced.status !== 'mismatch' || missing.status !== 'files-unavailable') {
     throw new Error(`Devnet disclosure mismatch: ${disclosure.status}/${replaced.status}/${missing.status}`);
   }
-  const result = { network: 'devnet', network_magic: 42, tx_hash, fee_lovelace: prepared.fee,
-    commitment_hash: payload.commitment_hash, reveal_deadline: payload.reveal_deadline, record,
-    verified: verified.status, readback_ms, browser_extension_used: false };
-  writeFileSync(path.join(root, 'docs/plans/2026-10-01-preregistry-mvp/registration-results.json'), JSON.stringify(result, null, 2) + '\n');
-  const disclosure_result = { network: 'devnet', network_magic: 42, commitment_tx_hash: tx_hash, announcement_tx_hash: announcement_hash,
+  // Step 6 evidence (registration-results.json) stays as recorded; each run records its own registration here.
+  const registration = { tx_hash, fee_lovelace: prepared.fee, commitment_hash: payload.commitment_hash, reveal_deadline: payload.reveal_deadline,
+    registrant_matches: record.registrant === prepared.registrant, verified: verified.status, readback_ms };
+  const disclosure_result = { network: 'devnet', network_magic: 42, registration, commitment_tx_hash: tx_hash, announcement_tx_hash: announcement_hash,
     announcement_fee_lovelace: announcement.fee, bundle_sha256: announcement_payload.bundle_sha256, bundle_url_chunks: announcement_payload.bundle_url.length,
     announced_at: disclosure.announced_at, registrant_matches: disclosure.registrant === record.registrant,
     verified: disclosure.status, replaced_file: replaced.status, missing_bundle: missing.status,

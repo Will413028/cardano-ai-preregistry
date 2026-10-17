@@ -37,7 +37,7 @@
 
 ## 本階段依賴的不變量
 
-步驟 5 已落地 `src/manifest.ts`、`src/commitment.ts`、`src/chain.ts`、`src/verifier.ts`、`src/read-proxy.ts` 與 `src/main.ts`；`registry`、真實鏈 adapter、完整揭露 bundle 與狀態仍待後續步驟。原預計模組名稱：`manifest`（schema 與正規化）、`commitment`（hash 編碼）、`chain`（送出與讀取的 adapter）、`verifier`、`registry`（狀態推導與索引）、`cli`、`web`（若 D2 要有網頁）。函式名以 `canonicalize`、`encode_commitment`、`ChainWriter`、`ChainReader`、`verify_reveal`、`derive_status` 為準，步驟 5 落地後同步改這裡。
+步驟 5 已落地 `src/manifest.ts`、`src/commitment.ts`、`src/chain.ts`、`src/verifier.ts`、`src/read-proxy.ts` 與 `src/main.ts`；步驟 6 加上真實鏈 adapter（`src/mesh-wallet.ts`、`src/registration.ts`、`scripts/cardano-api.ts`）；步驟 7 加上 `src/disclosure.ts`（`RevealBundle`、URL 分段）、`verify_reveal`／`verify_announcement` 與鏈上揭露公告；`registry` 與狀態仍待步驟 8。原預計模組名稱：`manifest`（schema 與正規化）、`commitment`（hash 編碼）、`chain`（送出與讀取的 adapter）、`verifier`、`registry`（狀態推導與索引）、`cli`、`web`（若 D2 要有網頁）。函式名以 `canonicalize`、`encode_commitment`、`ChainWriter`、`ChainReader`、`verify_reveal`、`derive_status` 為準，步驟 5 落地後同步改這裡。
 
 | 不變量 | 依賴它的機制 |
 |---|---|

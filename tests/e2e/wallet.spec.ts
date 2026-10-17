@@ -64,3 +64,50 @@ test('the public Cardano read route rejects private fields and write requests be
   }
   expect((await page.request.post('/api/cardano?kind=protocol&network=devnet', { data: { manifest: 'private' } })).status()).toBe(405);
 });
+test('wallet announcement spends only the registrant key, publishes public fields and never resubmits on rejection', async ({ page }) => {
+  await page.addInitScript(({ cbor, raw_address }) => {
+    Object.assign(window, { cardano: { mock: { name: 'mock', icon: '', apiVersion: '1.0.0', enable: async () => ({
+      getNetworkId: async () => 0, getChangeAddress: async () => raw_address, getUtxos: async () => [cbor],
+      signTx: async () => { Object.assign(window, { sign_calls: ((window as unknown as { sign_calls?: number }).sign_calls ?? 0) + 1 }); throw { info: 'User rejected signing' }; },
+      submitTx: async () => { throw new Error('Must not submit'); },
+    }) } } });
+  }, { cbor, raw_address });
+  const requests: string[] = [];
+  page.on('request', r => requests.push(r.url() + (r.postData() ?? '')));
+  let registrant = 'b'.repeat(56);
+  await page.route('**/api/cardano?**', async route => {
+    const url = new URL(route.request().url());
+    const kind = url.searchParams.get('kind');
+    if (kind === 'commitment') {
+      await route.fulfill({ json: { app: 'cardano-ai-preregistry', format_version: 1, network: 'preprod', commitment_hash: 'd'.repeat(64), reveal_deadline: '2030-01-01T00:00:00Z',
+        tx_hash: url.searchParams.get('tx_hash'), block_time: '2026-10-01T00:00:00.000Z', registrant, source: 'preprod' } });
+      return;
+    }
+    await route.fulfill({ json: kind === 'protocol' ? DEFAULT_PROTOCOL_PARAMETERS : kind === 'utxos' ? [input] : null });
+  });
+  await page.goto('/');
+  await page.locator('#commit').click();
+  await expect(page.locator('#commit-message')).toContainText('Local commitment created');
+  const draft = JSON.parse(await page.locator('#reveal').inputValue());
+  await page.locator('#create-bundle').click();
+  await expect(page.locator('#bundle-result')).toBeVisible();
+  await page.locator('#refresh-wallets').click();
+  await expect(page.locator('#wallet option')).toHaveText(['mock'], { timeout: 30000 });
+  await page.locator('#bundle-url').fill('https://files.example.test/' + 'bundle-'.repeat(12) + '.json');
+  registrant = 'c'.repeat(56);
+  await page.locator('#prepare-announcement').click();
+  await expect(page.locator('#announce-message')).toContainText('registered the commitment', { timeout: 30000 });
+  await expect(page.locator('#sign-announcement')).toBeDisabled();
+  registrant = 'b'.repeat(56);
+  await page.locator('#prepare-announcement').click();
+  await expect(page.locator('#announce-message')).toContainText('Host the bundle at the URL before signing', { timeout: 30000 });
+  const prepared = JSON.parse(await page.locator('#announcement-record').innerText());
+  expect(Object.keys(prepared).sort()).toEqual(['app', 'bundle_sha256', 'bundle_url', 'commitment_tx_hash', 'format_version', 'kind', 'network', 'registrant', 'status', 'tx_hash']);
+  expect(prepared.bundle_url.length).toBe(2);
+  expect(prepared.registrant).toBe('b'.repeat(56));
+  await page.locator('#sign-announcement').click();
+  await expect(page.locator('#announce-message')).toContainText('Check the prepared transaction hash before retrying');
+  await expect(page.locator('#sign-announcement')).toBeDisabled();
+  expect(await page.evaluate(() => (window as unknown as { sign_calls: number }).sign_calls)).toBe(1);
+  for (const secret of [draft.salt_hex, draft.manifest.title]) expect(requests.join('\n')).not.toContain(secret);
+});

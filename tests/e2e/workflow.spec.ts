@@ -122,4 +122,6 @@ test('disclose a hosted file, announce locally, then detect replaced and missing
   await page.locator('#verify-announcement').click();
   await expect(page.locator('[data-status="mismatch"]')).toBeVisible();
   await expect(page.locator('#verification')).toContainText('differs from the announced hash');
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

@@ -53,7 +53,8 @@ export function validate_announcement(input: AnnouncementPayload): AnnouncementP
     input.bundle_url.some(chunk => typeof chunk !== 'string' || !chunk || text_bytes(chunk) > 64)) {
     throw new Error('Invalid public announcement payload.');
   }
-  try { join_url(input.bundle_url); } catch { throw new Error('Invalid public announcement payload.'); }
+  // Loopback hosting is only meaningful for a local devnet; public networks require https.
+  try { join_url(input.bundle_url, input.network === 'devnet'); } catch { throw new Error('Invalid public announcement payload.'); }
   return structuredClone(input);
 }
 export function is_announcement(input: unknown): boolean {

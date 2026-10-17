@@ -88,7 +88,7 @@ try {
   hosted.set('/results.csv', file); hosted.set(bundle_path, bundle_bytes(bundle));
   writeFileSync(path.join(local, 'bundle.json'), bundle_bytes(bundle), { mode: 0o600 });
   const announcement_payload = { app: 'cardano-ai-preregistry', format_version: 1, kind: 'reveal', network: 'devnet', commitment_tx_hash: tx_hash,
-    bundle_sha256: await sha256(bundle_bytes(bundle)), bundle_url: split_url(`${base}${bundle_path}`) } as const;
+    bundle_sha256: await sha256(bundle_bytes(bundle)), bundle_url: split_url(`${base}${bundle_path}`, true) } as const;
   const wallet = { getNetworkId: async () => 0, getChangeAddress: async () => address, getUtxos: async () => query() };
   const announcement: PreparedRegistration = await poll(async () => {
     try { return await prepare_announcement(announcement_payload, record.registrant, wallet, { protocol: async () => provider.fetchProtocolParameters(), utxos: async (_network, hash) => provider.fetchUTxOs(hash) }); }

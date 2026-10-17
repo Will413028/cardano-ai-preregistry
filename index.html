@@ -70,6 +70,7 @@
       <section aria-labelledby="reveal-heading">
         <div class="section-heading"><span class="step">03</span><h2 id="reveal-heading">Verify a disclosure</h2></div>
         <p>Check a bundle directly, or check an on-chain announcement, its signer and the hosted bundle. Disclosed files are fetched from their own URLs.</p>
+        <p class="helper">Test-network records are read through this app's read route. For a check that does not rely on this app, run <code>verify_announcement</code> with your own Cardano data source.</p>
         <label for="verify-source">Read chain records from</label>
         <select id="verify-source"><option value="local">Local demo in this tab</option><option value="chain">Selected test network in record</option></select>
         <label for="bundle">Disclosure bundle (JSON)</label>

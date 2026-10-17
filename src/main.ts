@@ -251,11 +251,19 @@ element('download-bundle').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 element('bundle-url').addEventListener('input', () => { if (!announcing) reset_announcement(); });
-async function announcement_payload(): Promise<AnnouncementPayload> {
+/** Before anything permanent is announced, the hosted bundle and files must already verify as a match. */
+async function announcement_payload(reader: ChainReader): Promise<AnnouncementPayload> {
   if (!created_bundle) throw new Error('Create a disclosure bundle first.');
   if (!is_network(created_bundle.network)) throw new Error('Unsupported network.');
-  return { app: DOMAIN, format_version: 1, kind: 'reveal', network: created_bundle.network, commitment_tx_hash: created_bundle.commitment_tx_hash,
-    bundle_sha256: await sha256(bundle_bytes(created_bundle)), bundle_url: split_url(element<HTMLInputElement>('bundle-url').value.trim()) };
+  const network = created_bundle.network, url = element<HTMLInputElement>('bundle-url').value.trim();
+  const payload: AnnouncementPayload = { app: DOMAIN, format_version: 1, kind: 'reveal', network, commitment_tx_hash: created_bundle.commitment_tx_hash,
+    bundle_sha256: await sha256(bundle_bytes(created_bundle)), bundle_url: split_url(url, network === 'devnet') };
+  const hosted = await web_files.fetch(url).catch(() => null);
+  if (!hosted) throw new Error('The bundle URL could not be read from this browser. Host the bundle (allowing cross-origin reads) before announcing.');
+  if (await sha256(hosted) !== payload.bundle_sha256) throw new Error('The hosted bundle differs from the downloaded bundle. Upload the exact downloaded file.');
+  const check = await verify_reveal(created_bundle, reader, web_files);
+  if (check.status !== 'match') throw new Error(`The hosted disclosure does not verify yet (${check.status}): ${check.detail}`);
+  return payload;
 }
 function show_announcement(record: object, network: Network, hash: string, text: string) {
   const pre = element('announcement-record'); pre.textContent = JSON.stringify(record, null, 2); pre.hidden = false;
@@ -266,7 +274,7 @@ function show_announcement(record: object, network: Network, hash: string, text:
 element('announce-local').addEventListener('click', () => exclusive(async () => {
   reset_announcement();
   try {
-    const record = await chain.announce(await announcement_payload());
+    const record = await chain.announce(await announcement_payload(chain));
     element<HTMLSelectElement>('verify-source').value = 'local';
     show_announcement(record, record.network, record.tx_hash, 'Local demo announcement created. Nothing was submitted to Cardano.');
   } catch (error) { element('announce-message').textContent = error instanceof Error ? error.message : String(error); }
@@ -276,7 +284,7 @@ element('prepare-announcement').addEventListener('click', () => exclusive(async 
   try {
     const name = element<HTMLSelectElement>('wallet').value;
     if (!name) throw new Error('Refresh wallets and select the registering testnet wallet first.');
-    const payload = await announcement_payload();
+    const payload = await announcement_payload(live_reader);
     const commitment = await live_reader.get_commitment(payload.commitment_tx_hash, payload.network);
     if (!commitment) throw new Error('The commitment is not confirmed on the selected test network yet.');
     const { connect_wallet, prepare_announcement, browser_chain_data } = await import('./mesh-wallet.ts');

@@ -2,25 +2,25 @@
   "network": "devnet",
   "network_magic": 42,
   "registration": {
-    "tx_hash": "22b04f2465668cf5c39ad823242157e2c89d502336f431f5a1d9a20916a9f28b",
+    "tx_hash": "8bc48e29a3ccc4afc989396424e75ab7074aa29e580d41128b46493b161c9cf7",
     "fee_lovelace": "176413",
-    "commitment_hash": "e3636420224b6304d1d8356b3ce614adeed72d96df223bb08d9a3429dac6c8fe",
+    "commitment_hash": "71c6d41d46d6cc22db29886ccbbf767616a535704d448d57665d19eefd4d75ef",
     "reveal_deadline": "2030-01-01T00:00:00Z",
     "registrant_matches": true,
     "verified": "match",
-    "readback_ms": 2327
+    "readback_ms": 2325
   },
-  "commitment_tx_hash": "22b04f2465668cf5c39ad823242157e2c89d502336f431f5a1d9a20916a9f28b",
-  "announcement_tx_hash": "0d62ed08b81813ab61c5e53be046ba3c9e817c79a751bc4cc02bb8eb22f32e6d",
+  "commitment_tx_hash": "8bc48e29a3ccc4afc989396424e75ab7074aa29e580d41128b46493b161c9cf7",
+  "announcement_tx_hash": "f543976609247ac1980506b3dbe36576028328e79e34a8e5535961f7bc6eff50",
   "announcement_fee_lovelace": "186269",
-  "bundle_sha256": "833bb08022fcb7576a9106ffb74443d58ec25ef6ce6d8676a05f4e120e7ff47a",
+  "bundle_sha256": "e4156e64d9fb6cb055b0e5043888a985542b6f96e86fc14b78e607f55e02b4ca",
   "bundle_url_chunks": 3,
-  "announced_at": "2026-10-17T19:26:06.000Z",
+  "announced_at": "2026-10-17T19:33:28.000Z",
   "registrant_matches": true,
   "verified": "match",
   "replaced_file": "mismatch",
   "missing_bundle": "files-unavailable",
-  "announcement_readback_ms": 2354,
+  "announcement_readback_ms": 2324,
   "files_hosted_on": "loopback http, removed after the run",
   "browser_extension_used": false
 }

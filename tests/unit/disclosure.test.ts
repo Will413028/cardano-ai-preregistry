@@ -43,10 +43,12 @@ describe('reveal bundle format', () => {
       expect(join_url(chunks)).toBe(url);
     }
     expect(() => join_url(['short', 'x'])).toThrow();
+    expect(() => join_url(['https://example.test/' + 'd'.repeat(60)])).toThrow();
     for (const bad of ['http://files.example.test/x', 'https://user:pw@example.test/x', 'https://example.test/ä', 'https://example.test/' + 'c'.repeat(600), 'ftp://example.test/x']) {
       expect(() => split_url(bad)).toThrow();
     }
-    expect(split_url('http://127.0.0.1:8080/bundle.json')).toEqual(['http://127.0.0.1:8080/bundle.json']);
+    expect(split_url('http://127.0.0.1:8080/bundle.json', true)).toEqual(['http://127.0.0.1:8080/bundle.json']);
+    expect(() => split_url('http://127.0.0.1:8080/bundle.json')).toThrow();
   });
   it('requires exact fields, unique result and file entries and lowercase file hashes', async () => {
     const { bundle } = await disclosed();
@@ -56,6 +58,9 @@ describe('reveal bundle format', () => {
     expect(() => validate_bundle({ ...bundle, results: [...bundle.results, bundle.results[0]] })).toThrow();
     expect(() => validate_bundle({ ...bundle, files: [{ ...bundle.files[0]!, sha256: 'A'.repeat(64) }] })).toThrow();
     expect(() => validate_bundle({ ...bundle, results: [{ ...bundle.results[0]!, completed_runs: -1 }] })).toThrow();
+    const loopback = { ...bundle, files: [{ ...bundle.files[0]!, url: 'http://localhost:6379/x' }] };
+    expect(() => validate_bundle(loopback)).toThrow('https');
+    expect(validate_bundle({ ...loopback, network: 'devnet' }).network).toBe('devnet');
     const period = validate_bundle({ ...bundle, self_reported_period: { started_at: '2026-10-02T00:00:00Z' } });
     expect(period.self_reported_period).toEqual({ started_at: '2026-10-02T00:00:00Z' });
   });
@@ -66,6 +71,8 @@ describe('reveal bundle format', () => {
     expect(metadata).not.toContain(draft.salt_hex); expect(metadata).not.toContain(draft.manifest.title);
     expect(() => validate_announcement({ ...payload, salt_hex: draft.salt_hex } as AnnouncementPayload)).toThrow();
     expect(() => validate_announcement({ ...payload, bundle_url: ['x'.repeat(65)] })).toThrow();
+    expect(() => validate_announcement({ ...payload, bundle_url: ['http://127.0.0.1:8080/bundle.json'] })).toThrow();
+    expect(validate_announcement({ ...payload, network: 'devnet', bundle_url: ['http://127.0.0.1:8080/bundle.json'] }).network).toBe('devnet');
   });
 });
 
@@ -152,6 +159,12 @@ describe('verify_announcement', () => {
     const announcement = await state.chain.announce({ app: DOMAIN, format_version: 1, kind: 'reveal', network: 'preprod',
       commitment_tx_hash: other.record.tx_hash, bundle_sha256: await sha256(bundle_bytes(state.bundle)), bundle_url: split_url(BUNDLE_URL) });
     expect((await verify_announcement(announcement.tx_hash, 'preprod', state.chain, state.files)).status).toBe('mismatch');
+  });
+  it('rejects a reader that returns a different announcement than requested', async () => {
+    const { announcement, chain, files } = await announced();
+    const swapped: ChainReader = { get_commitment: (h, n) => chain.get_commitment(h, n), get_announcement: () => chain.get_announcement(announcement.tx_hash, 'preprod') };
+    const result = await verify_announcement('0'.repeat(64), 'preprod', swapped, files);
+    expect(result.status).toBe('invalid'); expect(result.announcement_tx_hash).toBe('0'.repeat(64));
   });
   it('reports a missing announcement or another network as not found', async () => {
     const { announcement, chain, files } = await announced();

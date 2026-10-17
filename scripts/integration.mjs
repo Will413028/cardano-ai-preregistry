@@ -11,5 +11,8 @@ const url = 'https://preprod.koios.rest/api/v1/tx_by_metalabel?_label=123456789&
 const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
 if (!response.ok) throw new Error('Koios HTTP ' + response.status);
 const rows = await response.json();
-if (!Array.isArray(rows) || rows.some(row => !/^[0-9a-f]{64}$/.test(row.tx_hash))) throw new Error('Unexpected Koios response.');
+if (!Array.isArray(rows) || !rows.length || rows.some(row => !/^[0-9a-f]{64}$/.test(row.tx_hash))) throw new Error('Unexpected Koios response.');
 console.log('Koios preprod read-only smoke passed. Existing public sample; not an application commitment.');
+const reader = spawnSync(process.execPath, ['--experimental-transform-types', fileURLToPath(new URL('./koios-reader.ts', import.meta.url)), rows[0].tx_hash], { stdio: 'inherit', timeout: 120000 });
+if (reader.error) throw reader.error;
+process.exit(reader.status ?? 1);

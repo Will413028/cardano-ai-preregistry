@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 import { core, DEFAULT_PROTOCOL_PARAMETERS, type UTxO } from '@meshsdk/core';
 
@@ -75,25 +76,35 @@ test('wallet announcement spends only the registrant key, publishes public field
   const requests: string[] = [];
   page.on('request', r => requests.push(r.url() + (r.postData() ?? '')));
   let registrant = 'b'.repeat(56);
+  let commitment: Record<string, unknown> | null = null;
+  let hosted_bundle: string | null = null;
+  const bundle_url = 'https://files.example.test/' + 'bundle-'.repeat(12) + '.json';
+  await page.route('https://files.example.test/**', route => route.fulfill(hosted_bundle === null ? { status: 404, body: '' }
+    : { status: 200, headers: { 'access-control-allow-origin': '*' }, body: hosted_bundle }));
   await page.route('**/api/cardano?**', async route => {
     const url = new URL(route.request().url());
     const kind = url.searchParams.get('kind');
-    if (kind === 'commitment') {
-      await route.fulfill({ json: { app: 'cardano-ai-preregistry', format_version: 1, network: 'preprod', commitment_hash: 'd'.repeat(64), reveal_deadline: '2030-01-01T00:00:00Z',
-        tx_hash: url.searchParams.get('tx_hash'), block_time: '2026-10-01T00:00:00.000Z', registrant, source: 'preprod' } });
-      return;
-    }
+    if (kind === 'commitment') { await route.fulfill({ json: commitment && { ...commitment, registrant, source: 'preprod' } }); return; }
     await route.fulfill({ json: kind === 'protocol' ? DEFAULT_PROTOCOL_PARAMETERS : kind === 'utxos' ? [input] : null });
   });
   await page.goto('/');
   await page.locator('#commit').click();
   await expect(page.locator('#commit-message')).toContainText('Local commitment created');
   const draft = JSON.parse(await page.locator('#reveal').inputValue());
+  commitment = JSON.parse(await page.locator('#public-record').innerText());
   await page.locator('#create-bundle').click();
   await expect(page.locator('#bundle-result')).toBeVisible();
   await page.locator('#refresh-wallets').click();
   await expect(page.locator('#wallet option')).toHaveText(['mock'], { timeout: 30000 });
-  await page.locator('#bundle-url').fill('https://files.example.test/' + 'bundle-'.repeat(12) + '.json');
+  await page.locator('#bundle-url').fill(bundle_url);
+  await page.locator('#prepare-announcement').click();
+  await expect(page.locator('#announce-message')).toContainText('could not be read', { timeout: 30000 });
+  hosted_bundle = 'not the downloaded bundle';
+  await page.locator('#prepare-announcement').click();
+  await expect(page.locator('#announce-message')).toContainText('differs from the downloaded bundle');
+  await expect(page.locator('#sign-announcement')).toBeDisabled();
+  const download = page.waitForEvent('download'); await page.locator('#download-bundle').click();
+  hosted_bundle = await readFile((await (await download).path())!, 'utf8');
   registrant = 'c'.repeat(56);
   await page.locator('#prepare-announcement').click();
   await expect(page.locator('#announce-message')).toContainText('registered the commitment', { timeout: 30000 });

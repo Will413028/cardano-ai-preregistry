@@ -109,7 +109,7 @@
   - 驗收：`make check` 綠：單元測試斷言 payload 的欄位集合等於白名單、且不含 32-byte salt 序列；連續兩次 commit 同一 manifest 得到不同 salt 與不同 hash。`make integration` 對本機 devnet（或 preprod，視 D10 與可用性）跑：送出後讀回的 hash 等於本機重算，且 metadata 的 `reveal_deadline` 等於 manifest 的同名值，結果記在進度表。mutation：把 salt 從 hash 輸入拿掉，測試向量測試必須失敗；在 payload 加入一個非白名單的 manifest 欄位，白名單測試必須失敗；把 salt 改成固定值，I8 測試必須失敗。
   - 停止條件：被擋於的任一決定未決；D3 選 B（合約）時，先依 phase-plan 第 5 節把本步拆成合約與鏈下兩個子步驟並各寫驗收再開工；提交前估算或已簽交易 body 的 fee 超過 300000 lovelace（D10），必須停止送出；不得自行放寬。
   - 需要人做的事：測試網 tADA 或本機 devnet 的下載同意；簽署金鑰由執行者在本機產生，已列入 `.gitignore`。
-- [ ] **7. 切片：揭露與獨立核對**（被擋於：步驟 6；D6、D7、D8）
+- [x] **7. 切片：揭露與獨立核對**（被擋於：步驟 6；D6、D7、D8）
   - 範圍：網頁揭露動作依 D7=A 產出可下載的揭露包，由登記者自行發布並提供 URL，網頁核對其內容；同一登記者以 CIP-30 簽署鏈上揭露公告，包含原 commitment tx hash、揭露包 hash 與 URL（URL 超過 metadata 單一元素長度限制時採可逆分段編碼），並讀回驗證公告與簽署者身分；揭露包包含 manifest、salt、結果、必要檔案及各自 hash（依 D6）、取得位置、commitment 的 tx hash 與網路；`verify_reveal` 只用揭露包與 `ChainReader`（至少兩種實作：第三方 API 或本機 devnet，以及 fixture）核對 commitment；核對 manifest 與登記 metadata 的 `reveal_deadline`，不一致不得回報 match；輸出 match／mismatch／commitment 不存在／檔案取不到、commitment 的區塊時間與網路，並附驗證邊界（I4、I6、I9）。
   - 消費端：`rg -n "verify_reveal|RevealBundle|ChainReader" src tests`（預計：`registry`、`web`、`cli`）。
   - 不能動：I1、I2、I4、I6、I9；`verify_reveal` 不得呼叫營運者自有的服務端點。
@@ -222,7 +222,7 @@ P-授權已確認；Will 指示先執行步驟 2、3（產出事實，不是產�
 | 4 Spike：讀取與索引 | 完成（Will 選公開樣本範圍） | Koios 三類查詢、分頁尾頁成功；兩網路 123456789 碰撞；Blockfrost 無 key 三端點 403；見 spike-indexing.md | Blockfrost 成功讀取、自家 preprod 索引延遲、CORS 與熱門 label 全歷史排序未驗；後續按選定來源補 | `1cb5d5b` |
 | 5 Walking skeleton | 完成 | 本機與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36868041395) 的 lint／TypeScript＋build、26 unit、4 Chromium e2e、2 mutation 通過；本機 read-only Koios smoke、桌面／375px 檢視通過 | 真實 CIP-30／metadata、Koios adapter／索引屬後續步驟；見 walking-skeleton.md | `1cb5d5b` |
 | 6 切片：登記 | 完成 | 本機與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36884486573) 的 lint/build、46 unit、6 E2E、5 mutation 通過；真實 devnet fee176413／hash、deadline、registrant match；獨立審查已處理，見 registration.md | 真實瀏覽器 extension／preprod 公網 finality 未測；揭露公告與完整索引屬後續步驟 | `52c23fd`、`a0e257a`、`398652f` |
-| 7 切片：揭露與核對 | 未開始 | | | |
+| 7 切片：揭露與核對 | 完成 | 本機 Node 22 的 lint／build、66 unit、8 E2E、8 mutation 通過；真實 devnet 登記＋公告（fee 186269、URL 3 段）以 Yaci reader 與 loopback 託管核對 match，換檔 mismatch、移除 bundle files-unavailable；Koios reader read-only 通過；獨立審查已處理，見 disclosure.md | Linux CI 待 push 後記錄；preprod extension 簽署、公網託管與 CORS、Koios 解析真實 app 公告未測；網頁鏈上讀取經同源 proxy（D9 與 I4 的張力），交 Will 決定 | `8fd0123`、`a4b7881` |
 | 8 切片：狀態介面 | 未開始 | | | |
 | 9 硬化 | 未開始 | | | |
 | 10 收尾 | 未開始 | | | |

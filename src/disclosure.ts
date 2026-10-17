@@ -27,25 +27,26 @@ const HASH = /^[0-9a-f]{64}$/;
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 
 /** Only https URLs, or http on loopback for local devnet runs; ASCII keeps byte chunks reversible. */
-export function validate_public_url(url: unknown): string {
+export function validate_public_url(url: unknown, allow_loopback = false): string {
   if (typeof url !== 'string' || !/^[\x21-\x7e]+$/.test(url) || url.length > MAX_URL_BYTES) throw new Error('URL must be printable ASCII, at most 512 bytes.');
   let parsed: URL;
   try { parsed = new URL(url); } catch { throw new Error('Invalid URL.'); }
-  const loopback = parsed.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname);
+  const loopback = allow_loopback && parsed.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname);
   if (parsed.protocol !== 'https:' && !loopback) throw new Error('Disclosure URLs must use https.');
   if (parsed.username || parsed.password) throw new Error('Disclosure URLs must not contain credentials.');
   return url;
 }
-export function split_url(url: string): string[] {
-  validate_public_url(url);
+export function split_url(url: string, allow_loopback = false): string[] {
+  validate_public_url(url, allow_loopback);
   const chunks: string[] = [];
   for (let i = 0; i < url.length; i += CHUNK_BYTES) chunks.push(url.slice(i, i + CHUNK_BYTES));
   return chunks;
 }
 /** Every chunk except the last is full, so each URL has exactly one encoding. */
-export function join_url(chunks: string[]): string {
-  if (!chunks.length || chunks.slice(0, -1).some(c => c.length !== CHUNK_BYTES) || !chunks.at(-1)) throw new Error('Non-canonical URL chunks.');
-  return validate_public_url(chunks.join(''));
+export function join_url(chunks: string[], allow_loopback = false): string {
+  const last = chunks.at(-1);
+  if (!last || last.length > CHUNK_BYTES || chunks.slice(0, -1).some(c => c.length !== CHUNK_BYTES)) throw new Error('Non-canonical URL chunks.');
+  return validate_public_url(chunks.join(''), allow_loopback);
 }
 
 function object(value: unknown, keys: string[], optional: string[] = []): Record<string, unknown> {
@@ -78,7 +79,7 @@ export function validate_bundle(input: unknown): RevealBundle {
   });
   const files = b.files.map(item => {
     const f = object(item, ['path', 'sha256', 'url']);
-    nonempty(f.path); validate_public_url(f.url);
+    nonempty(f.path); validate_public_url(f.url, b.network === 'devnet');
     if (typeof f.sha256 !== 'string' || !HASH.test(f.sha256)) throw new Error('File sha256 must be 64 lowercase hex characters.');
     return String(f.path);
   });

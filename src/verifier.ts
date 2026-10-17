@@ -89,12 +89,13 @@ export async function verify_announcement(tx_hash: string, network: ChainNetwork
     if (!/^[0-9a-f]{64}$/.test(tx_hash)) throw new Error('Invalid announcement transaction hash.');
     const announcement = await reader.get_announcement(tx_hash, network);
     if (!announcement) return done(result('not-found', 'Announcement was not found on the claimed network.', network));
+    if (announcement.tx_hash !== tx_hash) return done(result('invalid', 'Reader returned a different announcement.', network));
     announced_at = announcement.block_time; registrant = announcement.registrant;
     if (announcement.network !== network) return done(result('network-mismatch', `The announcement is on ${announcement.network}, not ${network}.`, announcement.network));
     const commitment = await reader.get_commitment(announcement.commitment_tx_hash, network);
     if (!commitment) return done(result('not-found', 'The announced commitment was not found.', network));
     if (commitment.registrant !== announcement.registrant) return done(result('signer-mismatch', 'The announcement was not signed by the original registrant.', network, commitment.block_time));
-    const bytes = await fetch_bytes(files, join_url(announcement.bundle_url));
+    const bytes = await fetch_bytes(files, join_url(announcement.bundle_url, network === 'devnet'));
     if (bytes === null) return done(result('files-unavailable', 'The announced bundle could not be retrieved now.', network, commitment.block_time));
     if (await sha256(bytes) !== announcement.bundle_sha256) return done(result('mismatch', 'The hosted bundle differs from the announced hash.', network, commitment.block_time));
     const bundle = validate_bundle(parse_json(new TextDecoder('utf-8', { fatal: true }).decode(bytes)));

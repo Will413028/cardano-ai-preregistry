@@ -6,7 +6,7 @@
 
 停止條件都沒有觸發：`@mithril-dev/mithril-client-wasm` 0.10.12 在 Vite 8 build 的頁面與 Node 22 都能取得並驗證 v2 transaction proof 與 certificate chain，preprod aggregator 可用。兩個發現要在子項 3 之前處理：
 
-1. **preprod 與 preview 的 Mithril genesis verification key 相同**，只有 mainnet 不同。I9 寫的「公開網路的網路身分由寫死的該網路 genesis key 驗證」只能區分 mainnet 與測試網，不能區分 preprod 與 preview。已列為 D16。
+1. **preprod 與 preview 的 Mithril genesis verification key 相同**，只有 mainnet 不同。I9 寫的「公開網路的網路身分由寫死的該網路 genesis key 驗證」只能區分 mainnet 與測試網，不能區分 preprod 與 preview。已列為 D16，Will 於 2026-10-18 選 A。
 2. **冷啟動的 certificate chain 驗證約 1 分鐘**（瀏覽器 59 秒），開啟 certificate 快取後第二次 0.5 秒。不阻塞主執行緒，但第一次核對要有進度提示。
 
 ## 版本與 API
@@ -72,7 +72,7 @@ WASM 的 HTTP 走全域 `fetch`，所以不需要 `mithril-aggregator-fake`：�
 
 Yaci Store 的 `WebConfig` 對 `/api/**` 註冊 CORS（`allowedOriginPatterns`、`allowCredentials`、`maxAge`），瀏覽器應可跨來源直讀——這是讀 jar 內 class 常數的推論；Store 沒有 node 時不會起 HTTP，本輪未實測 header。devnet 沒有 Mithril，輸出依 I9 標「本機信任」；子項 6 的 E2E 會實測直讀。
 
-## D16 的選項（交 Will）
+## D16 的選項（Will 於 2026-10-18 選 A）
 
 - A：網路身分只用 genesis key 區分 mainnet 與測試網；preprod／preview 依交易 metadata 與 commitment preimage 內的網路欄位，輸出標「測試網，Mithril 不區分 preprod 與 preview」。取捨：零額外機制；兩個測試網可互相冒充，但都不承載價值。
 - B：另外寫死各網路的 genesis certificate hash（preprod 目前為 `69bc3bdf…`），adapter 在 chain 驗證期間包住 `fetch`，確認走到的 genesis certificate 等於常數。取捨：可區分兩個測試網；依賴 WASM 走全域 `fetch` 的實作細節，且 Mithril re-genesis 時要更新常數並發版。

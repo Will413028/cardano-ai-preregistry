@@ -67,6 +67,8 @@
   - 自架節點 reader（可從 Mithril 認證的 `CardanoDatabase` snapshot 啟動），也是唯一能完整證明「不存在」的來源——觸發條件：有使用者不接受 Mithril 的信任假設，或要求「不存在」判定不依賴單一 indexer（D13、D15）。
   - 第二個獨立 indexer 交叉比對（例如 Blockfrost，需要帳號與 key）——觸發條件：Koios 的「沒找到」判定被登記者以 proof 推翻過，或步驟 9 量測顯示 Koios 漏資料（D15）。
   - 以寫死的 genesis certificate hash 區分 preprod 與 preview（D16 的 B）——觸發條件：D10 改選 mainnet 前重新評估，或有使用者以 preview 交易冒充 preprod。
+  - devnet 交易 bytes 的來源：Yaci Store 0.1.0 不存 CBOR，網頁只能核對本 tab 送出的 devnet 交易，integration 腳本用自己保存的已簽交易——觸發條件：步驟 8 要列出 devnet 登記，或要讓別人核對 devnet 交易；屆時評估上傳交易 CBOR、把 CBOR 放進 draft／揭露包，或換能回傳 CBOR 的本機 indexer（2026-10-18 設計審查）。
+  - 開發快取 `/api/cardano` 與 read proxy 的去留：D9 的前提（有部署的伺服器）已不成立，7b 只把它留作 dev-only、不被信任的傳輸——觸發條件：步驟 8 設計索引快取時，依「沒有伺服器」重新決定保留或刪除（2026-10-18 設計審查）。
   - Mithril WASM 升級——觸發條件：v2 transaction proof 不再標 unstable，或 0.10.12 以上版本進 npm `latest`；升級時重跑步驟 7b 的驗收（D13）。
 
 ## 步驟
@@ -125,21 +127,21 @@
   - 範圍：依序做，每個子項各有驗收，一個 session 做不完時在此拆成子步驟。
     1. Spike：在 Vite build 的瀏覽器頁面以 `@mithril-dev/mithril-client-wasm` 0.10.12（鎖定版本）對 preprod 公開樣本 tx 取得並驗證 v2 transaction proof 與 certificate chain，量載入體積與時間，記錄 API 名稱與 unstable 開關，確認 proof 的 Merkle root 與已認證 message 的比對步驟；產出離線測試的做法：錄製 certificate chain 到 genesis 的回應，或用 Mithril 的 `mithril-aggregator-fake` 供應 fixture，並讓 vitest 下的 WASM client 不連外；確認 devnet（Yaci）能否被瀏覽器跨來源直讀；產出 `docs/plans/2026-10-01-preregistry-mvp/spike-mithril.md`。拋棄式程式碼放 `spikes/mithril/`。——2026-10-18 完成，停止條件未觸發；發現 preprod 與 preview 共用 genesis key（D16）、冷啟動 chain 驗證約 1 分鐘，見 spike-mithril.md。
     2. 格式 v2：commitment preimage 在網路之後加入登記者 payment key hash（28 bytes，明確長度編碼），新增 v2 測試向量；v1 向量與 v1 驗證保留（格式版本規則），verifier 依 `format_version` 分派；新的登記一律用 v2，v1 核對結果標「未綁定登記者」；登記流程先連錢包並選定登記者 key（錢包 change address 的 payment key），再計算 hash，交易以 `required_signers` 要求同一把 key；local demo 用固定的 28-byte demo key hash，標明不是鏈上證據；跨語言向量由 `scripts/generate-vectors.py` 獨立產生（I2）；`docs/commitment-v1.md` 補 v2 規格（或另立 `commitment-v2.md`）。
-    3. 交易自驗：`ChainReader` 改為回傳原始 tx CBOR 與 inclusion 證據；verifier 用原始 body bytes 算 tx hash 並比對、核對 auxiliary data hash、解析 label 86741 metadata、取 `required_signers` 中唯一的 key 並驗其 vkey witness 簽章為登記者；拒絕含 script、redeemer 或 collateral 的交易；公開網路以 Mithril v2 proof（對寫死的各網路 genesis verification key 驗 certificate chain）證明上鏈與 slot，由 slot 換算區塊時間，各網路的 system start 與 era 邊界、slot 長度寫成程式常數，不從傳輸取得；Mithril 已證明上鏈時 witness 檢查在密碼學上是多餘的（ledger 已強制），但 devnet 與未認證交易仍需要；root 比對必須呼叫 `verify_message_match_certificate` 並要求 `=== true`（`…then_compute_message` 本身不比對，`false` 不丟例外；spike 實測）；k 用各網路程式常數，不讀 proof 的 `security_parameter`（0.10.12 回錯值）；開啟 certificate 快取並在第一次核對顯示進度（冷啟動約 1 分鐘）；網路身分依 D16：genesis key 只區分 mainnet 與測試網，preprod／preview 輸出標明 Mithril 不區分兩者；未認證時回新狀態「已上鏈、等待認證」，不回 match；devnet 用本機 reader，輸出標「本機信任」；local demo 的 `FakeChain` 改為以 demo key 簽出真實格式的 CBOR，同樣走自驗路徑，輸出標「local demo，不是鏈上證據」。刪除依 input 地址推導登記者與依 provider `tx_timestamp` 取時間的程式。
+    3. 交易自驗：`ChainReader` 改為回傳原始 tx CBOR 與 inclusion 證據；verifier 用原始 body bytes 算 tx hash 並比對、核對 auxiliary data hash、解析 label 86741 metadata、取 `required_signers` 中唯一的 key 並驗其 vkey witness 簽章為登記者；拒絕含 script、redeemer 或 collateral 的交易；公開網路以 Mithril v2 proof（對寫死的各網路 genesis verification key 驗 certificate chain）證明上鏈與 slot，由 slot 換算區塊時間，各網路的 system start 與 era 邊界、slot 長度寫成程式常數，不從傳輸取得；Mithril 已證明上鏈時 witness 檢查在密碼學上是多餘的（ledger 已強制），但 devnet 與未認證交易仍需要；root 比對必須呼叫 `verify_message_match_certificate` 並要求 `=== true`（`…then_compute_message` 本身不比對，`false` 不丟例外；spike 實測）；不讀 proof 的 `security_parameter`（0.10.12 回錯值）；本步只需要上鏈與 slot，不用 k：Mithril 認證約落後 tip 5 塊，不等於 k 深度的不可逆，步驟 8 判定按期／逾期與處理 rollback 時自訂最小深度（2026-10-18 設計審查後定案）；開啟 certificate 快取並在第一次核對顯示進度（冷啟動約 1 分鐘）；網路身分依 D16：genesis key 只區分 mainnet 與測試網，preprod／preview 輸出標明 Mithril 不區分兩者；未認證時回新狀態「已上鏈、等待認證」，不回 match；devnet 用本機 reader，輸出標「本機信任」；local demo 的 `FakeChain` 改為以 demo key 簽出真實格式的 CBOR，同樣走自驗路徑，輸出標「local demo，不是鏈上證據」。刪除依 input 地址推導登記者與依 provider `tx_timestamp` 取時間的程式。
     4. 寫入端：登記與公告交易以 `required_signers` 宣告登記者；刪除公告只能花登記者 key UTxO 的限制，手續費 input 不限。
     5. 任意來源：`verify_announcement` 與 `verify_reveal` 接受呼叫端提供的揭露包與檔案 bytes，以公告與揭露包內的 hash 核對；URL 只是預設來源；網頁可上傳揭露包檔案核對。
     6. 讀取路徑：網頁直接向 Koios 與 Mithril aggregator 讀取（兩者允許跨來源讀取，審查實測 2026-10-18）；`/api/cardano` 降為可選、不被信任的快取，經它或直連得到相同核對結果。送公告前的預檢、公告用的登記者、登記後的確認畫面（`src/main.ts` 讀 `record.registrant` 處）都改走自驗路徑；寫入端的 protocol parameters 與 UTxO 讀取（`src/mesh-wallet.ts` 的 `PublicChainData`）改為直連 Koios 或用 CIP-30 `getUtxos`，build 出的網站不依賴開發伺服器。
     7. 文件：README Status 與驗證邊界加入 Mithril 信任假設；`disclosure.md` 的未決項標為由 D13 處理；D4、D6、D8、D9 與 D13–D15 併入待整理的 ADR。
   - 消費端：`rg -n "ChainReader|get_commitment|get_announcement|registrant|block_time|encode_commitment|prepare_announcement|prepare_registration|read_commitment|read_announcement|RevealDraft|api/cardano|record\.network|frame\(utf8" src scripts tests`；2026-10-18 未加最後四個樣式時為 `src/verifier.ts`、`src/chain.ts`、`src/commitment.ts`、`src/mesh-wallet.ts`、`src/registration.ts`、`src/main.ts`、`scripts/cardano-api.ts`、`scripts/koios-reader.ts`、`scripts/register-devnet.ts` 與 6 個測試檔；另有命令抓不到的：`src/read-proxy.ts`（查詢種類）、`src/disclosure.ts`（`RevealDraft` 型別）、`scripts/mutations.mjs`（以原始碼字串為目標，改動後要同步改寫既有 8 個 mutation）、`scripts/integration.mjs`、`scripts/generate-vectors.py`、`tests/fixtures/commitment-v1.json`；步驟 8 的 `registry` 建在本步的介面上。
   - 不能動：v1 測試向量與 v1 驗證（格式版本規則）；I3 的白名單（payload 不得多出 manifest 內容或 salt）；I6 的驗證邊界文字只能增加 Mithril 信任假設，不能刪；label 86741 與公告格式（D12、步驟 7）。
-  - 驗收：`make check` 綠（fixture：真實 preprod 與 devnet 交易的 CBOR 與 Mithril proof 檔存成測試資料，無網路）。對抗測試：
+  - 驗收：`make check` 綠（fixture：真實 preprod 與 devnet 交易的 CBOR 與 Mithril proof 檔存成測試資料，無網路）。2026-10-18 設計審查後改寫：傳輸可能造成的失敗（bytes 對不上 hash、metadata 或 witness 被改、來源失效、proof 驗不過）回 `unavailable`，只有 hash 綁定的 body 本身不是 app 交易才回 `invalid`；時間不再是傳輸型別的欄位。對抗測試：
     - 別的 key 複製同一 `commitment_hash` 登記並以公開的 manifest、salt 發公告，核對不得回 match；同一測試也斷言原登記者的揭露回 match。fixture 用 demo key 或 devnet 特別建造（preprod 尚無 app 交易）。
-    - reader 回傳的 CBOR body hash 不等於所求 tx hash：invalid。
-    - 改 metadata 但 body 不變：auxiliary data hash 不符，invalid。
-    - witness 簽章無效或缺少、`required_signers` 不是恰好一把：signer-mismatch 或 invalid。
-    - 含 script 或 collateral 的交易：invalid。
+    - reader 回傳的 CBOR body hash 不等於所求 tx hash：unavailable。
+    - 改 metadata 但 body 不變：auxiliary data hash 不符，unavailable。
+    - witness 簽章無效或缺少：unavailable；`required_signers` 不是恰好一把：invalid。
+    - 含 collateral 等非白名單 body 欄位的交易：invalid；witness set 含 script：unavailable。
     - proof 屬於另一筆 tx、certificate chain 斷裂、用另一網路的 genesis key、chain 有效但 proof 的 Merkle root 不在已認證 message 內：不回 match。
-    - fixture reader 另外附上錯誤的時間：輸出時間仍等於 slot 換算值（「slot 換算」測試）。
+    - 已認證交易的輸出時間等於 slot 換算值（「slot 換算」測試）；傳輸型別沒有時間欄位，reader 無從附上時間。
     - 未認證：「已上鏈、等待認證」。
     - 揭露包從上傳取得、URL 失效：仍可 match。
     - 經 proxy 與直連得到相同結果。
@@ -149,7 +151,7 @@
     - 略過 witness 簽章驗證，「無效 witness」測試必須失敗。
     - preimage 拿掉登記者，「複製 commitment」測試必須失敗。
     - 接受任何 proof 不驗 certificate chain，「斷裂 chain」測試必須失敗。
-    - 時間改用 reader 附上的值，「slot 換算」測試必須失敗。
+    - 時間不由 slot 換算（改成其他來源），「slot 換算」測試必須失敗。
     - 略過 proof root 與已認證 message 的比對，對應測試必須失敗。
     - 不拒絕含 script 的交易，對應測試必須失敗。
   - 停止條件：spike 顯示 v2 proof 無法在瀏覽器驗證，或 0.10.12 無法在 Vite build 使用——停下回報，交 Will 選 D13 的替代（v1 stable，時間只到 15 塊範圍）；Mithril preprod aggregator 不可用；交易 fee 超過 300000 lovelace（D10）。
@@ -286,7 +288,7 @@ P-授權已確認；Will 指示先執行步驟 2、3（產出事實，不是產�
 | 5 Walking skeleton | 完成 | 本機與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36868041395) 的 lint／TypeScript＋build、26 unit、4 Chromium e2e、2 mutation 通過；本機 read-only Koios smoke、桌面／375px 檢視通過 | 真實 CIP-30／metadata、Koios adapter／索引屬後續步驟；見 walking-skeleton.md | `1cb5d5b` |
 | 6 切片：登記 | 完成 | 本機與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36884486573) 的 lint/build、46 unit、6 E2E、5 mutation 通過；真實 devnet fee176413／hash、deadline、registrant match；獨立審查已處理，見 registration.md | 真實瀏覽器 extension／preprod 公網 finality 未測；揭露公告與完整索引屬後續步驟 | `52c23fd`、`a0e257a`、`398652f` |
 | 7 切片：揭露與核對 | 完成 | 本機 Node 22 與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/39063030487) 的 lint／build、66 unit、8 E2E、8 mutation 通過；真實 devnet 登記＋公告（fee 186269、URL 3 段）以 Yaci reader 與 loopback 託管核對 match，換檔 mismatch、移除 bundle files-unavailable；Koios reader read-only 通過；獨立審查已處理，見 disclosure.md | preprod extension 簽署、公網託管與 CORS、Koios 解析真實 app 公告未測；網頁鏈上讀取經同源 proxy（D9 與 I4 的張力）：2026-10-18 由 D13–D15 決定，步驟 7b 處理 | `8fd0123`、`a4b7881`、`575f2cb` |
-| 7b 信任模型 | 進行中（子項 1 完成） | 子項 1 spike：Vite 8 build＋Chromium 與 Node 22 驗證 preprod v2 proof 與 chain 通過；離線重播 8 個案例（基準與竄改）皆如預期；見 spike-mithril.md | 子項 2–7 未開始；D16=A 已決；Yaci CORS header 未實測（讀碼推論），子項 6 E2E 補 | |
+| 7b 信任模型 | 程式完成待驗收（待 Linux CI） | 本機 Node 22：lint／build、102 unit、9 E2E、14 mutation 通過；spike（Chromium＋Node 驗 preprod v2 proof）；live `make integration`：Koios bytes＋Mithril 驗公開樣本 hash、witness 1/1、slot 136492696；真實 devnet 格式 v2 登記＋公告 match（fee 176413／186269，本機信任）；產品 Mithril adapter 在 Chromium 驗 live preprod（冷 63 秒、快取 1.2 秒）；獨立 correctness review 與 design-review 已處理，見 trust.md | Linux CI 未跑（待 push）；preprod 真實 extension 簽署與 required signer 行為、preprod app 交易、瀏覽器 Mithril 的自動化 E2E 未測（見 trust.md「未驗收」） | `885b8ce`、`a4ec11d` |
 | 8 切片：狀態介面 | 未開始 | | | |
 | 9 硬化 | 未開始 | | | |
 | 10 收尾 | 未開始 | | | |

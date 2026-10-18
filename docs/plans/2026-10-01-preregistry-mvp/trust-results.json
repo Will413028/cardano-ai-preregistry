@@ -1,0 +1,31 @@
+{
+  "network": "devnet",
+  "network_magic": 42,
+  "registration": {
+    "tx_hash": "82c267d48cbdef1631a20ad4095727b56a1a9d9f724e047462abc22f2e47702c",
+    "format_version": 2,
+    "fee_lovelace": "176413",
+    "commitment_hash": "1a245d39b92b0f21a59e664c5e31aed12143ff36830e042cb366d168db34d9e6",
+    "reveal_deadline": "2030-01-01T00:00:00Z",
+    "registrant": "1af2b9f112255b4227fbdd675cdee72e65d58fd6ba459775b570adf9",
+    "registrant_bound": true,
+    "trust": "local-node",
+    "verified": "match",
+    "readback_ms": 2777
+  },
+  "commitment_tx_hash": "82c267d48cbdef1631a20ad4095727b56a1a9d9f724e047462abc22f2e47702c",
+  "announcement_tx_hash": "a8831e539613d9d99334d7ab3928ace1515922ad4e334633b171c96e8d5ca94c",
+  "announcement_fee_lovelace": "186269",
+  "bundle_sha256": "dec982427fe9a3cf49df4ff79291f6179e94f2a1eaee877f6ca243d04eb9039b",
+  "bundle_url_chunks": 3,
+  "announced_at": "2026-10-17T19:25:59.000Z",
+  "signer_is_registrant": true,
+  "trust": "local-node",
+  "verified": "match",
+  "replaced_file": "mismatch",
+  "missing_bundle": "files-unavailable",
+  "supplied_bundle": "match",
+  "announcement_readback_ms": 2763,
+  "files_hosted_on": "loopback http, removed after the run",
+  "browser_extension_used": false
+}

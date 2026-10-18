@@ -1,9 +1,11 @@
-import { is_network, type ChainNetwork, type Network } from './commitment.ts';
+import { FORMAT_VERSION, FORMAT_VERSIONS, is_network, type ChainNetwork, type FormatVersion, type Network } from './commitment.ts';
+import { build_demo_transaction, DEMO_KEY, type DemoKey } from './transaction.ts';
+import { type Json } from './manifest.ts';
 import { join_url } from './disclosure.ts';
 
 export interface CommitmentPayload {
   app: 'cardano-ai-preregistry';
-  format_version: 1;
+  format_version: FormatVersion;
   network: Network;
   commitment_hash: string;
   reveal_deadline: string;
@@ -19,18 +21,20 @@ export interface AnnouncementPayload {
   bundle_url: string[];
 }
 export type PublicPayload = CommitmentPayload | AnnouncementPayload;
-interface ChainContext {
-  tx_hash: string;
-  block_time: string;
-  registrant: string;
-  source: 'fake' | 'devnet' | 'preprod';
-}
-export interface CommitmentRecord extends CommitmentPayload, ChainContext {}
-export interface AnnouncementRecord extends AnnouncementPayload, ChainContext {}
-export interface ChainWriter { commit(payload: CommitmentPayload): Promise<CommitmentRecord>; }
+/** Raw bytes from an untrusted transport (indexer, proxy, cache, local file). It carries no time: time is evidence. */
+export interface RawTransaction { cbor: string; }
+/**
+ * Inclusion evidence checked against the reader's trust root: a Mithril-certified slot on public networks (time is
+ * derived from the slot), or the local devnet node / local demo, whose answer and time are only locally trusted.
+ */
+export type Inclusion =
+  | { status: 'certified'; trust: 'mithril'; slot: number; block_number: number }
+  | { status: 'pending'; trust: 'mithril' }
+  | { status: 'local'; trust: 'local-node' | 'local-demo'; time: string };
+export type Trust = Inclusion['trust'];
 export interface ChainReader {
-  get_commitment(tx_hash: string, network: ChainNetwork): Promise<CommitmentRecord | null>;
-  get_announcement(tx_hash: string, network: ChainNetwork): Promise<AnnouncementRecord | null>;
+  get_transaction(tx_hash: string, network: ChainNetwork): Promise<RawTransaction | null>;
+  get_inclusion(tx_hash: string, network: ChainNetwork): Promise<Inclusion>;
 }
 
 const HASH = /^[0-9a-f]{64}$/;
@@ -39,7 +43,7 @@ const text_bytes = (value: string) => new TextEncoder().encode(value).length;
 
 export function validate_payload(input: CommitmentPayload): CommitmentPayload {
   if (!input || typeof input !== 'object' || !exact_keys(input, ['app', 'format_version', 'network', 'commitment_hash', 'reveal_deadline']) || input.app !== 'cardano-ai-preregistry' ||
-    input.format_version !== 1 || !is_network(input.network) ||
+    !(FORMAT_VERSIONS as readonly unknown[]).includes(input.format_version) || !is_network(input.network) ||
     !HASH.test(input.commitment_hash) || !Number.isFinite(Date.parse(input.reveal_deadline))) {
     throw new Error('Invalid public commitment payload.');
   }
@@ -64,27 +68,26 @@ export function validate_public_payload(input: PublicPayload): PublicPayload {
   return is_announcement(input) ? validate_announcement(input as AnnouncementPayload) : validate_payload(input as CommitmentPayload);
 }
 
-export class FakeChain implements ChainWriter, ChainReader {
-  private readonly records = new Map<string, CommitmentRecord>();
-  private readonly announcements = new Map<string, AnnouncementRecord>();
-  private context(): ChainContext {
-    const tx_hash = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('');
-    return { tx_hash, block_time: new Date().toISOString(), registrant: 'local-demo-wallet', source: 'fake' };
+/** Local demo chain: real-format transactions signed by public demo keys, verified like any other source. */
+export class FakeChain implements ChainReader {
+  private readonly txs = new Map<string, { cbor: string; time: string; network: Network }>();
+  private submit(payload: PublicPayload, signer: DemoKey): string {
+    const { tx_hash, cbor } = build_demo_transaction(payload as unknown as Json, signer, crypto.getRandomValues(new Uint8Array(32)));
+    this.txs.set(tx_hash, { cbor, time: new Date().toISOString(), network: payload.network });
+    return tx_hash;
   }
-  async commit(payload: CommitmentPayload): Promise<CommitmentRecord> {
-    const record: CommitmentRecord = { ...validate_payload(payload), ...this.context() };
-    this.records.set(record.tx_hash, record); return structuredClone(record);
+  async commit(payload: CommitmentPayload, signer = DEMO_KEY): Promise<string> {
+    if (payload.format_version !== FORMAT_VERSION) throw new Error('New registrations use the current commitment format.');
+    return this.submit(validate_payload(payload), signer);
   }
-  async announce(payload: AnnouncementPayload): Promise<AnnouncementRecord> {
-    const record: AnnouncementRecord = { ...validate_announcement(payload), ...this.context() };
-    this.announcements.set(record.tx_hash, record); return structuredClone(record);
+  async announce(payload: AnnouncementPayload, signer = DEMO_KEY): Promise<string> { return this.submit(validate_announcement(payload), signer); }
+  async get_transaction(tx_hash: string, network: ChainNetwork): Promise<RawTransaction | null> {
+    const tx = this.txs.get(tx_hash);
+    return tx?.network === network ? { cbor: tx.cbor } : null;
   }
-  async get_commitment(tx_hash: string, network: ChainNetwork): Promise<CommitmentRecord | null> {
-    const record = this.records.get(tx_hash);
-    return record?.network === network ? structuredClone(record) : null;
-  }
-  async get_announcement(tx_hash: string, network: ChainNetwork): Promise<AnnouncementRecord | null> {
-    const record = this.announcements.get(tx_hash);
-    return record?.network === network ? structuredClone(record) : null;
+  async get_inclusion(tx_hash: string): Promise<Inclusion> {
+    const tx = this.txs.get(tx_hash);
+    if (!tx) throw new Error('Unknown local demo transaction.');
+    return { status: 'local', trust: 'local-demo', time: tx.time };
   }
 }

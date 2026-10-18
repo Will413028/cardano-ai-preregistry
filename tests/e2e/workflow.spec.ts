@@ -31,6 +31,7 @@ test('register then match, change a setting then mismatch without disclosing ove
   await page.getByRole('button', { name: 'Verify bundle' }).click();
   await expect(page.locator('[data-status="match"]')).toBeVisible();
   await expect(page.locator('#verification')).toContainText('Commitments do not prove actual execution');
+  await expect(page.locator('[data-trust="local-demo"]')).toContainText('not chain evidence');
   const bundle = JSON.parse(await page.locator('#bundle').inputValue());
   bundle.manifest.experiments[0].settings.temperature = 0.9;
   await page.locator('#bundle').fill(JSON.stringify(bundle));
@@ -108,7 +109,7 @@ test('disclose a hosted file, announce locally, then detect replaced and missing
   await expect(page.locator('#announce-message')).toContainText('Local demo announcement created');
   await page.locator('#verify-announcement').click();
   await expect(page.locator('[data-status="match"]')).toBeVisible();
-  await expect(page.locator('#verification')).toContainText('Signer: local-demo-wallet');
+  await expect(page.locator('#verification')).toContainText(/Registrant: [0-9a-f]{56} /);
   await expect(page.locator('#verification')).toContainText('results.csv: match');
   await expect(page.locator('#verification')).toContainText("registrant's claims");
   hosted.set('https://files.example.test/results.csv', 'run,accuracy\n1,0.99\n');
@@ -122,6 +123,16 @@ test('disclose a hosted file, announce locally, then detect replaced and missing
   await page.locator('#verify-announcement').click();
   await expect(page.locator('[data-status="mismatch"]')).toBeVisible();
   await expect(page.locator('#verification')).toContainText('differs from the announced hash');
+  // Any source: with every URL gone, the uploaded bundle and file still verify by hash.
+  hosted.clear();
+  await page.locator('#verify-bundle-file').setInputFiles({ name: 'bundle.json', mimeType: 'application/json', buffer: Buffer.from(bundle_text) });
+  await page.locator('#verify-files').setInputFiles({ name: 'results.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+  await page.locator('#verify-announcement').click();
+  await expect(page.locator('[data-status="match"]')).toBeVisible();
+  await expect(page.locator('#verification')).toContainText('results.csv: match');
+  await page.locator('#bundle').fill('');
+  await page.locator('#verify').click();
+  await expect(page.locator('[data-status="match"]')).toBeVisible();
   await page.setViewportSize({ width: 375, height: 812 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

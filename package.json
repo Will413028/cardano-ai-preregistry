@@ -22,6 +22,9 @@
     "@meshsdk/core-cst": "1.9.1",
     "@meshsdk/transaction": "1.9.1",
     "@meshsdk/wallet": "1.9.1",
+    "@mithril-dev/mithril-client-wasm": "0.10.12",
+    "@noble/curves": "1.9.7",
+    "@noble/hashes": "1.8.0",
     "buffer": "6.0.3",
     "json-canonicalize": "3.0.1",
     "process": "0.11.10"

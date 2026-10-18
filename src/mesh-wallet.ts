@@ -5,7 +5,14 @@ import * as core from '@meshsdk/core-cst';
 import { type Protocol, type UTxO } from '@meshsdk/common';
 import { type AnnouncementPayload, type PublicPayload } from './chain.ts';
 import { check_transaction, METADATA_LABEL, type PreparedRegistration, type TransactionInspection } from './registration.ts';
+import { verify_transaction } from './transaction.ts';
+
+function verified_registrant(cbor: string, tx_hash: string): string | null {
+  try { return verify_transaction(cbor, tx_hash).registrant; } catch { return null; }
+}
 import { type Network } from './commitment.ts';
+import { DEVNET_API } from './readers.ts';
+import type { KoiosProvider, YaciProvider } from '@meshsdk/core';
 
 export interface BuildWallet {
   getNetworkId(): Promise<number>;
@@ -37,14 +44,23 @@ export function inspect_transaction(cbor: string): TransactionInspection {
   return {
     fee: body.fee(), body_hash: body.hash(), metadata: json_metadata(aux.metadata()?.toCore()),
     signer_hashes: body.requiredSigners()?.values().map(s => s.toCore()) ?? [],
+    verified_registrant: verified_registrant(cbor, body.hash()),
     network_id: body.networkId() ?? 0,
   };
 }
-/** An announcement must be signed by the commitment's registrant, so only that key's inputs qualify. */
-export async function prepare_announcement(payload: AnnouncementPayload, registrant: string, wallet: BuildWallet, data: PublicChainData): Promise<PreparedRegistration> {
-  return prepare_registration(payload, wallet, data, registrant);
+/** The registrant is the wallet's change-address payment key; it is fixed before the commitment hash is computed (D14). */
+export async function wallet_registrant(wallet: BuildWallet): Promise<string> {
+  if (await wallet.getNetworkId() !== 0) throw new Error('Mainnet wallets are not supported.');
+  const registrant = key_hash(await wallet.getChangeAddress());
+  if (!registrant || core.Address.fromBech32(await wallet.getChangeAddress()).getNetworkId() !== 0) throw new Error('Only a testnet payment key address is supported.');
+  return registrant;
 }
-export async function prepare_registration(payload: PublicPayload, wallet: BuildWallet, data: PublicChainData, required_registrant?: string): Promise<PreparedRegistration> {
+/** An announcement must be signed by the commitment's registrant; fee inputs may come from any wallet key. */
+export async function prepare_announcement(payload: AnnouncementPayload, registrant: string, wallet: BuildWallet, data: PublicChainData): Promise<PreparedRegistration> {
+  if (await wallet_registrant(wallet) !== registrant) throw new Error('Use the wallet that registered the commitment; its change address must be the registrant key.');
+  return prepare_registration(payload, registrant, wallet, data);
+}
+export async function prepare_registration(payload: PublicPayload, registrant: string, wallet: BuildWallet, data: PublicChainData): Promise<PreparedRegistration> {
   if (await wallet.getNetworkId() !== 0) throw new Error('Mainnet wallets are not supported.');
   const address = await wallet.getChangeAddress();
   const decoded = core.Address.fromBech32(address);
@@ -52,13 +68,10 @@ export async function prepare_registration(payload: PublicPayload, wallet: Build
   const all = await wallet.getUtxos();
   // One ADA-only input avoids spending unrelated tokens and bounds read requests.
   const candidates = all.filter(u => u.output.amount.length === 1 && u.output.amount[0]?.unit === 'lovelace' &&
-    BigInt(u.output.amount[0].quantity) >= 3000000n && (!required_registrant || key_hash(u.output.address) === required_registrant)).sort((a, b) => Number(BigInt(b.output.amount[0]!.quantity) - BigInt(a.output.amount[0]!.quantity)));
+    BigInt(u.output.amount[0].quantity) >= 3000000n && key_hash(u.output.address) !== null).sort((a, b) => Number(BigInt(b.output.amount[0]!.quantity) - BigInt(a.output.amount[0]!.quantity)));
   const input = candidates[0];
-  if (!input) throw new Error(required_registrant ? 'Use the wallet that registered the commitment; it needs an ADA-only UTxO of at least 3 testADA on the registrant key.'
-    : 'A funded ADA-only UTxO of at least 3 testADA is required.');
-  const input_address = core.Address.fromBech32(input.output.address);
-  if (input_address.getNetworkId() !== 0 || input_address.getProps().paymentPart?.type !== core.CredentialType.KeyHash) throw new Error('A testnet payment key input is required.');
-  const registrant = core.resolvePaymentKeyHash(input.output.address);
+  if (!input) throw new Error('A funded ADA-only UTxO of at least 3 testADA on a payment key is required.');
+  if (core.Address.fromBech32(input.output.address).getNetworkId() !== 0) throw new Error('A testnet payment key input is required.');
   const chain_utxos = await data.utxos(payload.network, input.input.txHash);
   const real = chain_utxos.find(u => u.input.txHash === input.input.txHash && u.input.outputIndex === input.input.outputIndex && u.output.address === input.output.address);
   if (!real || real.output.amount.length !== 1 || real.output.amount[0]?.unit !== 'lovelace' ||
@@ -72,11 +85,28 @@ export async function prepare_registration(payload: PublicPayload, wallet: Build
 }
 export async function connect_wallet(name: string): Promise<BrowserWallet> { return BrowserWallet.enable(name); }
 export function installed_wallets(): { id: string; name: string }[] { return BrowserWallet.getInstalledWallets(); }
-export const browser_chain_data: PublicChainData = {
-  protocol: network => public_read('protocol', network),
-  utxos: (network, hash) => public_read('utxos', network, hash),
+/** Write-side reads go straight to the public provider, so a built site needs no development server. */
+export function direct_chain_data(): PublicChainData {
+  const providers = new Map<Network, Promise<YaciProvider | KoiosProvider>>();
+  const provider = (network: Network) => {
+    let p = providers.get(network);
+    if (!p) {
+      p = import('@meshsdk/core').then(({ YaciProvider, KoiosProvider }) => network === 'devnet' ? new YaciProvider(DEVNET_API) : new KoiosProvider('preprod'));
+      providers.set(network, p);
+    }
+    return p;
+  };
+  return {
+    protocol: async network => (await provider(network)).fetchProtocolParameters(),
+    utxos: async (network, hash) => (await provider(network)).fetchUTxOs(hash),
+  };
+}
+/** Same reads through the optional development cache; it is a transport, so results are checked the same way. */
+export const proxy_chain_data: PublicChainData = {
+  protocol: network => proxy_read('protocol', network),
+  utxos: (network, hash) => proxy_read('utxos', network, hash),
 };
-export async function public_read<T>(kind: string, network: Network, hash?: string): Promise<T> {
+async function proxy_read<T>(kind: string, network: Network, hash?: string): Promise<T> {
   const params = new URLSearchParams({ kind, network });
   if (hash) params.set('tx_hash', hash);
   const response = await fetch(`/api/cardano?${params}`, { signal: AbortSignal.timeout(30000) });

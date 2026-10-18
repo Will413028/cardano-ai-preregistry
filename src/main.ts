@@ -1,9 +1,12 @@
 import './style.css';
 import { canonicalize, parse_json, sample_manifest, validate_manifest, type Manifest } from './manifest.ts';
-import { DOMAIN, encode_commitment, hex, is_network, new_salt, sha256, type ChainNetwork, type Network } from './commitment.ts';
-import { FakeChain, type AnnouncementPayload, type AnnouncementRecord, type ChainReader, type CommitmentPayload, type CommitmentRecord } from './chain.ts';
-import { verify_announcement, verify_commitment, verify_reveal, VERIFICATION_BOUNDARY, type FileFetcher, type RevealDraft, type Verification } from './verifier.ts';
+import { DOMAIN, encode_commitment, FORMAT_VERSION, hex, is_network, new_salt, sha256, type Network } from './commitment.ts';
+import { FakeChain, type AnnouncementPayload, type ChainReader, type CommitmentPayload } from './chain.ts';
+import { verify_announcement, verify_commitment, verify_reveal, with_uploads, VERIFICATION_BOUNDARY, type FileFetcher, type RevealDraft, type Verification } from './verifier.ts';
 import { sign_and_submit, type PreparedRegistration, type RegistrationWallet } from './registration.ts';
+import { DEMO_KEY } from './transaction.ts';
+import { MithrilInclusion } from './mithril.ts';
+import { web_reader, type Transport } from './readers.ts';
 import { bundle_bytes, create_bundle, split_url, type DisclosedFile, type ExperimentResult, type RevealBundle } from './disclosure.ts';
 
 function element<T extends HTMLElement>(id: string): T { return document.getElementById(id) as T; }
@@ -33,18 +36,25 @@ for (const id of ['manifest', 'network', 'wallet']) element(id).addEventListener
   phase = 'none';
   element('prepared-summary').textContent = 'Plan or wallet selection changed. Prepare a new registration before signing.';
 });
-async function live_read<T>(kind: 'commitment' | 'announcement', hash: string, network: ChainNetwork): Promise<T | null> {
-  if (!is_network(network)) throw new Error(`Reading ${network} is not supported in this MVP.`);
-  const { public_read } = await import('./mesh-wallet.ts');
-  return public_read<T | null>(kind, network, hash);
+/** Verified certificates persist in this browser, so only the first Mithril check walks the whole chain. */
+const mithril = new MithrilInclusion({ cache: true });
+/** devnet bytes: the signed transactions this tab submitted (the local indexer keeps no CBOR). */
+const devnet_signed = new Map<string, string>();
+// The development cache exists only under the Vite dev server; a built site always reads directly.
+if (!import.meta.env.DEV) element<HTMLSelectElement>('read-transport').querySelector('option[value="proxy"]')?.remove();
+const transport = (): Transport => import.meta.env.DEV && element<HTMLSelectElement>('read-transport').value === 'proxy' ? 'proxy' : 'direct';
+const live_reader = (): ChainReader => web_reader(transport(), devnet_signed, mithril);
+async function chain_data() {
+  const { direct_chain_data, proxy_chain_data } = await import('./mesh-wallet.ts');
+  return transport() === 'proxy' ? proxy_chain_data : direct_chain_data();
 }
-const live_reader: ChainReader = {
-  get_commitment: (hash, network) => live_read<CommitmentRecord>('commitment', hash, network),
-  get_announcement: (hash, network) => live_read<AnnouncementRecord>('announcement', hash, network),
-};
+/** Shown while a check runs; a cold Mithril chain walk takes about a minute. */
+function checking(text = 'Checking transaction bytes and the Mithril certificate chain; the first check can take about a minute.') {
+  element('verification').textContent = text;
+}
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 /** Disclosed files come straight from their own URLs, never through the operator's read route (I4). */
-const web_files: FileFetcher = { async fetch(url) {
+const web_files: FileFetcher = { async fetch(url: string) {
   const response = await fetch(url, { credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(30000) });
   if (!response.ok) return null;
   const bytes = new Uint8Array(await response.arrayBuffer());
@@ -70,12 +80,12 @@ commit_button.addEventListener('click', async () => {
     const network = element<HTMLSelectElement>('network').value as Network;
     const salt = new_salt();
     const payload: CommitmentPayload = {
-      app: 'cardano-ai-preregistry', format_version: 1, network,
-      commitment_hash: await encode_commitment(manifest, salt, network), reveal_deadline: manifest.reveal_deadline,
+      app: 'cardano-ai-preregistry', format_version: FORMAT_VERSION, network,
+      commitment_hash: await encode_commitment(manifest, salt, network, DEMO_KEY.key_hash), reveal_deadline: manifest.reveal_deadline,
     };
-    const record = await chain.commit(payload);
-    saved_draft = { format_version: 1, network, tx_hash: record.tx_hash, manifest, salt_hex: hex(salt) };
-    element('public-record').textContent = JSON.stringify(record, null, 2);
+    const tx_hash = await chain.commit(payload);
+    saved_draft = { format_version: FORMAT_VERSION, network, tx_hash, manifest, salt_hex: hex(salt) };
+    element('public-record').textContent = JSON.stringify({ ...payload, tx_hash, registrant: DEMO_KEY.key_hash, source: 'local demo key, not chain evidence' }, null, 2);
     element('commit-result').hidden = false;
     reveal_input.value = JSON.stringify(saved_draft, null, 2);
     element<HTMLTextAreaElement>('results').value = JSON.stringify(results_template(manifest), null, 2);
@@ -91,17 +101,30 @@ function show_verification(result: Verification, extra: string[] = []) {
   title.dataset.status = result.status;
   const detail = document.createElement('p'); detail.textContent = result.detail;
   const context = document.createElement('p'); context.className = 'helper';
-  context.textContent = [`Network: ${result.network ?? 'unknown'}`, `Commitment time: ${result.block_time ?? 'unavailable'}`, ...extra].join(' · ');
+  context.textContent = [`Network: ${result.network ?? 'unknown'}`, `Commitment time: ${result.block_time ?? 'unavailable'}`,
+    ...(result.slot === null ? [] : [`Slot: ${result.slot}`]), `Registrant: ${result.registrant ?? 'unknown'}${result.registrant_bound === false ? ' (not bound by format v1)' : ''}`, ...extra].join(' · ');
   const files = document.createElement('ul'); files.className = 'file-status';
   files.replaceChildren(...result.files.map(f => { const item = document.createElement('li'); item.textContent = `${f.path}: ${f.status}`; return item; }));
   const self_reported = document.createElement('p'); self_reported.className = 'helper'; self_reported.textContent = result.self_reported;
   const boundary = document.createElement('p'); boundary.className = 'helper'; boundary.textContent = result.boundary;
-  element('verification').replaceChildren(title, detail, context, files, self_reported, boundary);
+  const trust = document.createElement('p'); trust.className = 'helper'; trust.dataset.trust = result.trust ?? 'none'; trust.textContent = result.trust_boundary ?? '';
+  element('verification').replaceChildren(title, detail, context, files, self_reported, boundary, trust);
 }
-const selected_reader = (): ChainReader => element<HTMLSelectElement>('verify-source').value === 'chain' ? live_reader : chain;
+const selected_reader = (): ChainReader => element<HTMLSelectElement>('verify-source').value === 'chain' ? live_reader() : chain;
+const file_bytes = async (input: HTMLInputElement) => Promise.all(Array.from(input.files ?? []).map(async f => new Uint8Array(await f.arrayBuffer())));
+/** Uploaded bundle and files are served by hash before any URL is tried (I4: any source, checked by hash). */
+async function supplied(): Promise<{ bundle: Uint8Array | undefined; files: FileFetcher }> {
+  const [bundle] = await file_bytes(element<HTMLInputElement>('verify-bundle-file'));
+  return { bundle, files: with_uploads(await file_bytes(element<HTMLInputElement>('verify-files')), web_files) };
+}
 verify_button.addEventListener('click', async () => {
   verify_button.disabled = true;
-  try { show_verification(await verify_reveal(parse_json(element<HTMLTextAreaElement>('bundle').value), selected_reader(), web_files)); }
+  try {
+    const { bundle, files } = await supplied();
+    const text = bundle ? new TextDecoder('utf-8', { fatal: true }).decode(bundle) : element<HTMLTextAreaElement>('bundle').value;
+    checking();
+    show_verification(await verify_reveal(parse_json(text), selected_reader(), files));
+  }
   catch (error) { element('verification').textContent = error instanceof Error ? error.message : 'Invalid JSON.'; }
   finally { verify_button.disabled = false; }
 });
@@ -109,9 +132,12 @@ element('verify-announcement').addEventListener('click', async () => {
   const button = element<HTMLButtonElement>('verify-announcement');
   button.disabled = true;
   try {
-    const result = await verify_announcement(element<HTMLInputElement>('announcement-tx').value.trim(), element<HTMLSelectElement>('announcement-network').value as Network, selected_reader(), web_files);
-    show_verification(result, [`Announced: ${result.announced_at ?? 'unavailable'}`, `Signer: ${result.registrant ?? 'unknown'}`]);
-  } finally { button.disabled = false; }
+    const { bundle, files } = await supplied();
+    checking();
+    const result = await verify_announcement(element<HTMLInputElement>('announcement-tx').value.trim(), element<HTMLSelectElement>('announcement-network').value as Network, selected_reader(), files, bundle);
+    show_verification(result, [`Announced: ${result.announced_at ?? 'unavailable'}`, `Announcement signer: ${result.announcement_signer ?? 'unknown'}`]);
+  } catch (error) { element('verification').textContent = error instanceof Error ? error.message : String(error); }
+  finally { button.disabled = false; }
 });
 
 element('download').addEventListener('click', () => {
@@ -141,13 +167,15 @@ element('prepare').addEventListener('click', async () => {
     if (!name) throw new Error('Refresh wallets and select a testnet wallet first.');
     const manifest = validate_manifest(parse_json(manifest_input.value));
     const network = element<HTMLSelectElement>('network').value as Network, salt = new_salt();
-    const payload: CommitmentPayload = { app: 'cardano-ai-preregistry', format_version: 1, network,
-      commitment_hash: await encode_commitment(manifest, salt, network), reveal_deadline: manifest.reveal_deadline };
-    const { connect_wallet, prepare_registration, browser_chain_data } = await import('./mesh-wallet.ts');
+    const { connect_wallet, prepare_registration, wallet_registrant } = await import('./mesh-wallet.ts');
+    // The registrant key is chosen before hashing, because format v2 binds it into the commitment.
     const wallet = await connect_wallet(name);
-    prepared = await prepare_registration(payload, wallet, browser_chain_data); connected = wallet;
+    const registrant = await wallet_registrant(wallet);
+    const payload: CommitmentPayload = { app: 'cardano-ai-preregistry', format_version: FORMAT_VERSION, network,
+      commitment_hash: await encode_commitment(manifest, salt, network, registrant), reveal_deadline: manifest.reveal_deadline };
+    prepared = await prepare_registration(payload, registrant, wallet, await chain_data()); connected = wallet;
     phase = 'prepared';
-    saved_draft = { format_version: 1, network, tx_hash: prepared.tx_hash, manifest, salt_hex: hex(salt) };
+    saved_draft = { format_version: FORMAT_VERSION, network, tx_hash: prepared.tx_hash, manifest, salt_hex: hex(salt) };
     reveal_input.value = JSON.stringify(saved_draft, null, 2);
     element<HTMLSelectElement>('verify-source').value = 'chain';
     element('public-record').textContent = JSON.stringify({ ...payload, tx_hash: prepared.tx_hash, registrant: prepared.registrant, status: 'prepared, not submitted' }, null, 2);
@@ -164,7 +192,8 @@ element('sign-submit').addEventListener('click', async () => {
   sign_button.disabled = true; lock_form(true);
   try {
     const { inspect_transaction } = await import('./mesh-wallet.ts');
-    const hash = await sign_and_submit(registration, wallet, inspect_transaction);
+    const { tx_hash: hash, signed_tx } = await sign_and_submit(registration, wallet, inspect_transaction);
+    if (registration.payload.network === 'devnet') devnet_signed.set(hash, signed_tx);
     phase = 'submitted';
     element('commit-message').textContent = `Submitted ${hash}. Confirmation is pending; keep your saved draft and check chain confirmation.`;
     read_button.disabled = false;
@@ -180,12 +209,14 @@ element('readback').addEventListener('click', async () => {
   const draft = saved_draft, registration = prepared;
   read_button.disabled = true; lock_form(true);
   try {
-    const record = await live_reader.get_commitment(draft.tx_hash, draft.network);
-    if (!record) { element('commit-message').textContent = 'Not found yet. Your transaction may still be pending; keep your saved draft.'; return; }
-    const result = await verify_commitment(draft, live_reader);
-    if (result.status !== 'match' || record.registrant !== registration?.registrant) throw new Error('Chain record differs from the prepared registration.');
-    element('public-record').textContent = JSON.stringify(record, null, 2);
-    element('commit-message').textContent = 'Confirmed on the selected test network; commitment hash and deadline match your private draft.';
+    element('commit-message').textContent = 'Checking the transaction and its Mithril certificate; the first check can take about a minute.';
+    const result = await verify_commitment(draft, live_reader());
+    if (result.status === 'not-found') { element('commit-message').textContent = 'Not found yet. Your transaction may still be pending; keep your saved draft.'; return; }
+    if (result.status === 'pending') { element('commit-message').textContent = 'On chain, waiting for Mithril certification. Check again in a few minutes; keep your saved draft.'; return; }
+    if (result.status === 'unavailable') { element('commit-message').textContent = `${result.detail} Keep your saved draft.`; return; }
+    if (result.status !== 'match' || result.registrant !== registration?.registrant) throw new Error('Chain record differs from the prepared registration.');
+    element('public-record').textContent = JSON.stringify({ ...registration.payload, tx_hash: draft.tx_hash, registrant: result.registrant, block_time: result.block_time, slot: result.slot, trust: result.trust }, null, 2);
+    element('commit-message').textContent = 'Confirmed on the selected test network; commitment hash, registrant and deadline match your private draft.';
   } catch (error) { element('commit-message').textContent = String(error); }
   finally { read_button.disabled = false; lock_form(false); }
 });
@@ -234,7 +265,8 @@ element('create-bundle').addEventListener('click', () => exclusive(async () => {
     const results = parse_json(element<HTMLTextAreaElement>('results').value) as unknown as ExperimentResult[];
     const files: DisclosedFile[] = disclosed_files.map(f => ({ path: f.path, sha256: f.sha256, url: f.url.value.trim() }));
     const bundle = create_bundle(draft, results, files);
-    const check = await verify_commitment(draft, element<HTMLSelectElement>('verify-source').value === 'chain' ? live_reader : chain);
+    element('bundle-message').textContent = 'Checking the draft against its commitment.';
+    const check = await verify_commitment(draft, selected_reader());
     if (check.status !== 'match') throw new Error(`The draft does not match its commitment (${check.status}); no bundle was created.`);
     created_bundle = bundle;
     element('bundle-hash').textContent = await sha256(bundle_bytes(bundle));
@@ -252,18 +284,18 @@ element('download-bundle').addEventListener('click', () => {
 });
 element('bundle-url').addEventListener('input', () => { if (!announcing) reset_announcement(); });
 /** Before anything permanent is announced, the hosted bundle and files must already verify as a match. */
-async function announcement_payload(reader: ChainReader): Promise<AnnouncementPayload> {
+async function announcement_payload(reader: ChainReader): Promise<{ payload: AnnouncementPayload; registrant: string }> {
   if (!created_bundle) throw new Error('Create a disclosure bundle first.');
   if (!is_network(created_bundle.network)) throw new Error('Unsupported network.');
   const network = created_bundle.network, url = element<HTMLInputElement>('bundle-url').value.trim();
   const payload: AnnouncementPayload = { app: DOMAIN, format_version: 1, kind: 'reveal', network, commitment_tx_hash: created_bundle.commitment_tx_hash,
     bundle_sha256: await sha256(bundle_bytes(created_bundle)), bundle_url: split_url(url, network === 'devnet') };
-  const hosted = await web_files.fetch(url).catch(() => null);
+  const hosted = await web_files.fetch(url, payload.bundle_sha256).catch(() => null);
   if (!hosted) throw new Error('The bundle URL could not be read from this browser. Host the bundle (allowing cross-origin reads) before announcing.');
   if (await sha256(hosted) !== payload.bundle_sha256) throw new Error('The hosted bundle differs from the downloaded bundle. Upload the exact downloaded file.');
   const check = await verify_reveal(created_bundle, reader, web_files);
-  if (check.status !== 'match') throw new Error(`The hosted disclosure does not verify yet (${check.status}): ${check.detail}`);
-  return payload;
+  if (check.status !== 'match' || !check.registrant) throw new Error(`The hosted disclosure does not verify yet (${check.status}): ${check.detail}`);
+  return { payload, registrant: check.registrant };
 }
 function show_announcement(record: object, network: Network, hash: string, text: string) {
   const pre = element('announcement-record'); pre.textContent = JSON.stringify(record, null, 2); pre.hidden = false;
@@ -274,9 +306,10 @@ function show_announcement(record: object, network: Network, hash: string, text:
 element('announce-local').addEventListener('click', () => exclusive(async () => {
   reset_announcement();
   try {
-    const record = await chain.announce(await announcement_payload(chain));
+    const { payload } = await announcement_payload(chain);
+    const tx_hash = await chain.announce(payload);
     element<HTMLSelectElement>('verify-source').value = 'local';
-    show_announcement(record, record.network, record.tx_hash, 'Local demo announcement created. Nothing was submitted to Cardano.');
+    show_announcement({ ...payload, tx_hash, registrant: DEMO_KEY.key_hash, source: 'local demo key, not chain evidence' }, payload.network, tx_hash, 'Local demo announcement created. Nothing was submitted to Cardano.');
   } catch (error) { element('announce-message').textContent = error instanceof Error ? error.message : String(error); }
 }));
 element('prepare-announcement').addEventListener('click', () => exclusive(async () => {
@@ -284,12 +317,11 @@ element('prepare-announcement').addEventListener('click', () => exclusive(async 
   try {
     const name = element<HTMLSelectElement>('wallet').value;
     if (!name) throw new Error('Refresh wallets and select the registering testnet wallet first.');
-    const payload = await announcement_payload(live_reader);
-    const commitment = await live_reader.get_commitment(payload.commitment_tx_hash, payload.network);
-    if (!commitment) throw new Error('The commitment is not confirmed on the selected test network yet.');
-    const { connect_wallet, prepare_announcement, browser_chain_data } = await import('./mesh-wallet.ts');
+    element('announce-message').textContent = 'Checking the hosted disclosure against the certified commitment.';
+    const { payload, registrant } = await announcement_payload(live_reader());
+    const { connect_wallet, prepare_announcement } = await import('./mesh-wallet.ts');
     const wallet = await connect_wallet(name);
-    announcement = await prepare_announcement(payload, commitment.registrant, wallet, browser_chain_data); announcement_wallet = wallet;
+    announcement = await prepare_announcement(payload, registrant, wallet, await chain_data()); announcement_wallet = wallet;
     show_announcement({ ...payload, tx_hash: announcement.tx_hash, registrant: announcement.registrant, status: 'prepared, not submitted' }, payload.network, announcement.tx_hash,
       `Fee: ${announcement.fee} lovelace. Host the bundle at the URL before signing.`);
   } catch (error) { element('announce-message').textContent = error instanceof Error ? error.message : String(error); }
@@ -300,7 +332,8 @@ sign_announcement.addEventListener('click', () => exclusive(async () => {
   reset_announcement();
   try {
     const { inspect_transaction } = await import('./mesh-wallet.ts');
-    const hash = await sign_and_submit(prepared_announcement, wallet, inspect_transaction);
+    const { tx_hash: hash, signed_tx } = await sign_and_submit(prepared_announcement, wallet, inspect_transaction);
+    if (prepared_announcement.payload.network === 'devnet') devnet_signed.set(hash, signed_tx);
     element<HTMLSelectElement>('verify-source').value = 'chain';
     element('announce-message').textContent = `Submitted ${hash}. Confirmation is pending; verify the announcement once it is on chain.`;
   } catch (error) {

@@ -1,4 +1,4 @@
-"""Generate v1 fixtures independently using RFC 8785's Python implementation.
+"""Generate v1 and v2 fixtures independently using RFC 8785's Python implementation.
 
 Run with a Python environment containing rfc8785==0.1.4. Generation is optional;
 the saved fixtures are consumed by the offline TypeScript/browser test suite.
@@ -12,6 +12,8 @@ import rfc8785
 ROOT = Path(__file__).resolve().parents[1]
 DOMAIN = b'cardano-ai-preregistry'
 SALT = bytes(range(32))  # Public deterministic test input, never a private salt.
+REGISTRANT = bytes(range(100, 128))  # Public 28-byte test key hash, not a real wallet.
+OTHER_REGISTRANT = bytes(range(200, 228))
 
 
 def frame(value):
@@ -37,12 +39,24 @@ cases = [('baseline', manifest, 'preprod:1'),
          ('reversed-keys', dict(reversed(list(manifest.items()))), 'preprod:1'),
          ('network-separation', manifest, 'devnet:42'),
          ('unicode-and-numbers', unicode_manifest, 'preprod:1')]
-vectors = []
-for name, value, network in cases:
+
+
+def vector(name, value, network, version, registrant=None):
     canonical = rfc8785.dumps(value)
-    encoded = frame(DOMAIN) + (1).to_bytes(2, 'big') + frame(network.encode()) + SALT + frame(canonical)
-    vectors.append({'id': name, 'manifest': value, 'domain_tag': DOMAIN.decode(), 'format_version': 1,
-                    'network_id': network, 'salt_hex': SALT.hex(), 'canonical_hex': canonical.hex(),
-                    'encoded_hex': encoded.hex(), 'expected_hash': hashlib.sha256(encoded).hexdigest()})
-(ROOT / 'tests/fixtures/commitment-v1.json').write_text(json.dumps(vectors, ensure_ascii=False, indent=2) + '\n')
-print(f'Generated {len(vectors)} Python JCS/SHA-256 v1 vectors.')
+    bound = frame(registrant) if version == 2 else b''
+    encoded = frame(DOMAIN) + version.to_bytes(2, 'big') + frame(network.encode()) + bound + SALT + frame(canonical)
+    item = {'id': name, 'manifest': value, 'domain_tag': DOMAIN.decode(), 'format_version': version,
+            'network_id': network, 'salt_hex': SALT.hex()}
+    if version == 2:
+        item['registrant_hex'] = registrant.hex()
+    item.update({'canonical_hex': canonical.hex(), 'encoded_hex': encoded.hex(), 'expected_hash': hashlib.sha256(encoded).hexdigest()})
+    return item
+
+
+# v1 is used by existing devnet transactions; its fixture must stay byte-identical.
+v1 = [vector(name, value, network, 1) for name, value, network in cases]
+v2 = [vector(name, value, network, 2, REGISTRANT) for name, value, network in cases]
+v2.append(vector('registrant-separation', manifest, 'preprod:1', 2, OTHER_REGISTRANT))
+for version, vectors in ((1, v1), (2, v2)):
+    (ROOT / f'tests/fixtures/commitment-v{version}.json').write_text(json.dumps(vectors, ensure_ascii=False, indent=2) + '\n')
+print(f'Generated {len(v1)} v1 and {len(v2)} v2 Python JCS/SHA-256 vectors.')

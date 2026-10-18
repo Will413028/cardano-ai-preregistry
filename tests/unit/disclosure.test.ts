@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { sample_manifest } from '../../src/manifest';
 import { DOMAIN, encode_commitment, hex, new_salt, sha256 } from '../../src/commitment';
+import { DEMO_KEY, demo_key } from '../../src/transaction';
 import { FakeChain, validate_announcement, type AnnouncementPayload, type ChainReader, type CommitmentPayload } from '../../src/chain';
 import { bundle_bytes, create_bundle, join_url, split_url, validate_bundle, type RevealBundle } from '../../src/disclosure';
 import { verify_announcement, verify_reveal, VERIFICATION_BOUNDARY, type FileFetcher, type RevealDraft } from '../../src/verifier';
@@ -13,24 +14,24 @@ const BUNDLE_URL = 'https://files.example.test/bundle.json';
 async function registered(chain = new FakeChain()) {
   const manifest = structuredClone(sample_manifest);
   const salt = new_salt();
-  const payload: CommitmentPayload = { app: DOMAIN, format_version: 1, network: 'preprod', commitment_hash: await encode_commitment(manifest, salt, 'preprod'), reveal_deadline: manifest.reveal_deadline };
-  const record = await chain.commit(payload);
-  const draft: RevealDraft = { format_version: 1, network: 'preprod', tx_hash: record.tx_hash, manifest, salt_hex: hex(salt) };
-  return { chain, record, draft };
+  const payload: CommitmentPayload = { app: DOMAIN, format_version: 2, network: 'preprod', commitment_hash: await encode_commitment(manifest, salt, 'preprod', DEMO_KEY.key_hash), reveal_deadline: manifest.reveal_deadline };
+  const tx_hash = await chain.commit(payload);
+  const draft: RevealDraft = { format_version: 2, network: 'preprod', tx_hash, manifest, salt_hex: hex(salt) };
+  return { chain, tx_hash, draft };
 }
 async function disclosed() {
-  const { chain, record, draft } = await registered();
+  const { chain, tx_hash, draft } = await registered();
   const file = utf8('run,accuracy\n1,0.81\n2,0.79\n3,0.80\n');
   const bundle = create_bundle(draft, [{ experiment_id: 'baseline', completed_runs: 3, metrics: { accuracy: 0.8 } }],
     [{ path: 'results.csv', sha256: await sha256(file), url: RESULTS_URL }]);
   const hosted = new Map<string, Uint8Array>([[RESULTS_URL, file], [BUNDLE_URL, bundle_bytes(bundle)]]);
   const files: FileFetcher = { async fetch(url) { return hosted.get(url) ?? null; } };
-  return { chain, record, draft, bundle, hosted, files };
+  return { chain, tx_hash, draft, bundle, hosted, files };
 }
 async function announced() {
   const state = await disclosed();
   const payload: AnnouncementPayload = { app: DOMAIN, format_version: 1, kind: 'reveal', network: 'preprod',
-    commitment_tx_hash: state.record.tx_hash, bundle_sha256: await sha256(bundle_bytes(state.bundle)), bundle_url: split_url(BUNDLE_URL) };
+    commitment_tx_hash: state.tx_hash, bundle_sha256: await sha256(bundle_bytes(state.bundle)), bundle_url: split_url(BUNDLE_URL) };
   const announcement = await state.chain.announce(payload);
   return { ...state, payload, announcement };
 }
@@ -78,10 +79,11 @@ describe('reveal bundle format', () => {
 
 describe('verify_reveal adversarial checks', () => {
   it('matches the original commitment and every disclosed file', async () => {
-    const { bundle, chain, files, record } = await disclosed();
+    const { bundle, chain, files, tx_hash } = await disclosed();
     const result = await verify_reveal(bundle, chain, files);
     expect(result.status).toBe('match');
-    expect(result.network).toBe('preprod'); expect(result.block_time).toBe(record.block_time);
+    expect(result.network).toBe('preprod'); expect(result.block_time).toBe(((await chain.get_inclusion(tx_hash)) as { time: string }).time);
+    expect(result.registrant).toBe(DEMO_KEY.key_hash); expect(result.registrant_bound).toBe(true); expect(result.trust).toBe('local-demo');
     expect(result.files).toEqual([{ path: 'results.csv', status: 'match' }]);
   });
   it('a changed manifest field or salt is a mismatch', async () => {
@@ -106,12 +108,12 @@ describe('verify_reveal adversarial checks', () => {
   it('pointing at another commitment is a mismatch', async () => {
     const { bundle, chain, files } = await disclosed();
     const other = await registered(chain);
-    expect((await verify_reveal({ ...bundle, commitment_tx_hash: other.record.tx_hash }, chain, files)).status).toBe('mismatch');
+    expect((await verify_reveal({ ...bundle, commitment_tx_hash: other.tx_hash }, chain, files)).status).toBe('mismatch');
   });
   it('a testnet commitment claimed as mainnet reports a network mismatch', async () => {
     const { bundle, chain, files } = await disclosed();
     // A reader keyed only by transaction hash returns the preprod record for any network.
-    const naive: ChainReader = { get_commitment: async hash => chain.get_commitment(hash, 'preprod'), get_announcement: async () => null };
+    const naive: ChainReader = { get_transaction: async hash => chain.get_transaction(hash, 'preprod'), get_inclusion: async hash => chain.get_inclusion(hash) };
     const result = await verify_reveal({ ...bundle, network: 'mainnet' }, naive, files);
     expect(result.status).toBe('network-mismatch');
     expect((await verify_reveal({ ...bundle, network: 'mainnet' }, chain, files)).status).toBe('not-found');
@@ -132,43 +134,42 @@ describe('verify_reveal adversarial checks', () => {
 describe('verify_announcement', () => {
   it('verifies the announcement signer, bundle hash and reveal', async () => {
     const { announcement, chain, files } = await announced();
-    const result = await verify_announcement(announcement.tx_hash, 'preprod', chain, files);
+    const result = await verify_announcement(announcement, 'preprod', chain, files);
     expect(result.status).toBe('match');
-    expect(result.announced_at).toBe(announcement.block_time);
-    expect(result.registrant).toBe(announcement.registrant);
+    expect(result.announced_at).toBe(((await chain.get_inclusion(announcement)) as { time: string }).time);
+    expect(result.announcement_signer).toBe(DEMO_KEY.key_hash);
+    expect(result.registrant).toBe(DEMO_KEY.key_hash);
   });
   it('rejects an announcement signed by someone other than the registrant', async () => {
-    const { announcement, chain, files } = await announced();
-    const forged: ChainReader = {
-      get_commitment: (hash, network) => chain.get_commitment(hash, network),
-      get_announcement: async (hash, network) => { const a = await chain.get_announcement(hash, network); return a && { ...a, registrant: 'forger' }; },
-    };
-    expect((await verify_announcement(announcement.tx_hash, 'preprod', forged, files)).status).toBe('signer-mismatch');
+    const { payload, chain, files } = await announced();
+    const forger = demo_key('forger');
+    const forged = await verify_announcement(await chain.announce(payload, forger), 'preprod', chain, files);
+    expect(forged.status).toBe('signer-mismatch'); expect(forged.announcement_signer).toBe(forger.key_hash); expect(forged.registrant).toBe(DEMO_KEY.key_hash);
   });
   it('rejects a bundle edited after announcement or missing at its URL', async () => {
     const { announcement, bundle, chain, files, hosted } = await announced();
     const edited = structuredClone(bundle) as RevealBundle; edited.results[0]!.metrics.accuracy = 0.95;
     hosted.set(BUNDLE_URL, bundle_bytes(edited));
-    expect((await verify_announcement(announcement.tx_hash, 'preprod', chain, files)).status).toBe('mismatch');
+    expect((await verify_announcement(announcement, 'preprod', chain, files)).status).toBe('mismatch');
     hosted.delete(BUNDLE_URL);
-    expect((await verify_announcement(announcement.tx_hash, 'preprod', chain, files)).status).toBe('files-unavailable');
+    expect((await verify_announcement(announcement, 'preprod', chain, files)).status).toBe('files-unavailable');
   });
   it('rejects a bundle that belongs to a different commitment than the announcement', async () => {
     const state = await disclosed();
     const other = await registered(state.chain);
     const announcement = await state.chain.announce({ app: DOMAIN, format_version: 1, kind: 'reveal', network: 'preprod',
-      commitment_tx_hash: other.record.tx_hash, bundle_sha256: await sha256(bundle_bytes(state.bundle)), bundle_url: split_url(BUNDLE_URL) });
-    expect((await verify_announcement(announcement.tx_hash, 'preprod', state.chain, state.files)).status).toBe('mismatch');
+      commitment_tx_hash: other.tx_hash, bundle_sha256: await sha256(bundle_bytes(state.bundle)), bundle_url: split_url(BUNDLE_URL) });
+    expect((await verify_announcement(announcement, 'preprod', state.chain, state.files)).status).toBe('mismatch');
   });
-  it('rejects a reader that returns a different announcement than requested', async () => {
+  it('rejects a reader that returns a different transaction than requested', async () => {
     const { announcement, chain, files } = await announced();
-    const swapped: ChainReader = { get_commitment: (h, n) => chain.get_commitment(h, n), get_announcement: () => chain.get_announcement(announcement.tx_hash, 'preprod') };
+    const swapped: ChainReader = { get_transaction: () => chain.get_transaction(announcement, 'preprod'), get_inclusion: async () => chain.get_inclusion(announcement) };
     const result = await verify_announcement('0'.repeat(64), 'preprod', swapped, files);
-    expect(result.status).toBe('invalid'); expect(result.announcement_tx_hash).toBe('0'.repeat(64));
+    expect(result.status).toBe('unavailable'); expect(result.announcement_tx_hash).toBe('0'.repeat(64));
   });
   it('reports a missing announcement or another network as not found', async () => {
     const { announcement, chain, files } = await announced();
     expect((await verify_announcement('0'.repeat(64), 'preprod', chain, files)).status).toBe('not-found');
-    expect((await verify_announcement(announcement.tx_hash, 'devnet', chain, files)).status).toBe('not-found');
+    expect((await verify_announcement(announcement, 'devnet', chain, files)).status).toBe('not-found');
   });
 });

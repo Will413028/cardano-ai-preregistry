@@ -1,15 +1,17 @@
 import { expect, it } from 'vitest';
 import { MemoryReadCache, parse_public_query, ReadProxy, type PublicQuery } from '../../src/read-proxy';
 
-const query: PublicQuery = { kind: 'commitment', network: 'preprod', tx_hash: 'a'.repeat(64) };
+const query: PublicQuery = { kind: 'tx', network: 'preprod', tx_hash: 'a'.repeat(64) };
 it('allows only public fields, fixed networks and bounded pagination', () => {
   const url = (search: string) => new URL('http://localhost/api/read?' + search);
-  expect(parse_public_query(url('kind=commitment&network=preprod&tx_hash=' + 'a'.repeat(64)))).toEqual(query);
+  expect(parse_public_query(url('kind=tx&network=preprod&tx_hash=' + 'a'.repeat(64)))).toEqual(query);
   for (const extra of ['&salt=secret', '&manifest=secret', '&url=https://attacker.test', '&network=devnet']) {
-    expect(() => parse_public_query(url('kind=commitment&network=preprod&tx_hash=' + 'a'.repeat(64) + extra))).toThrow();
+    expect(() => parse_public_query(url('kind=tx&network=preprod&tx_hash=' + 'a'.repeat(64) + extra))).toThrow();
   }
-  expect(parse_public_query(url('kind=announcement&network=devnet&tx_hash=' + 'b'.repeat(64)))).toEqual({ kind: 'announcement', network: 'devnet', tx_hash: 'b'.repeat(64) });
-  expect(() => parse_public_query(url('kind=announcement&network=devnet&tx_hash=' + 'b'.repeat(64) + '&bundle_url=x'))).toThrow();
+  expect(parse_public_query(url('kind=utxos&network=devnet&tx_hash=' + 'b'.repeat(64)))).toEqual({ kind: 'utxos', network: 'devnet', tx_hash: 'b'.repeat(64) });
+  expect(() => parse_public_query(url('kind=tx&network=devnet&tx_hash=' + 'b'.repeat(64) + '&bundle_url=x'))).toThrow();
+  // Trusting decoded records was removed with D13; only raw bytes are served.
+  for (const kind of ['commitment', 'announcement']) expect(() => parse_public_query(url(`kind=${kind}&network=preprod&tx_hash=` + 'a'.repeat(64)))).toThrow();
   expect(() => parse_public_query(url('kind=label&network=preprod&label=674'))).toThrow();
   expect(() => parse_public_query(url('kind=label&network=preprod&label=65536&limit=101'))).toThrow();
 });

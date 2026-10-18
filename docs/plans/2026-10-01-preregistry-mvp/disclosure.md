@@ -61,6 +61,7 @@ local demo 的公告由 FakeChain 產生，不是鏈上證據。
   - Koios reader 沒有 integration。
   - README 與進度表未更新。
 - 未修，交 repo 擁有者決定：網頁的鏈上讀取經過同源 read proxy，registrant 也在 proxy 推導，所以這條讀取路徑仍依賴營運者服務。這是 D9（同源 proxy）與 I4 的張力。`verify_reveal`／`verify_announcement` 本身只依賴注入的 reader，網頁已加說明。
+  - 2026-10-18 決定：改成直連也只是換一個要信任的 API，不能治本。改由 D13（原始 CBOR 自驗＋Mithril v2 proof）、D14（`required_signers` 身分，格式 v2 綁定登記者）、D15（「沒找到」標明來源，可被推翻）處理，由步驟 7b 實作。同次檢視發現 commitment 可被複製冒領（preimage 不含登記者），也由 D14 處理。
 
 ## 未驗收
 

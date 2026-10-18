@@ -47,10 +47,10 @@ def main():
         errors.append("計畫仍有 HTML 註解（模板檔頭未刪）")
 
     # 步驟欄位
-    steps = split_blocks(plan, r"^- \[[ x]\] \*\*\d+\. ")
+    steps = split_blocks(plan, r"^- \[[ x]\] \*\*\d+[a-z]?\. ")
     step_nums = set()
     for head, body in steps:
-        num = re.search(r"\*\*(\d+)\. ", head).group(1)
+        num = re.search(r"\*\*(\d+[a-z]?)\. ", head).group(1)
         step_nums.add(num)
         if "收尾" in head:
             if "驗收：" not in head + body:
@@ -102,7 +102,7 @@ def main():
         if not target:
             errors.append(f"{rid} 沒有對應（步驟、決定或範圍）")
             continue
-        for n in re.findall(r"步驟 ([\d、]+)", target):
+        for n in re.findall(r"步驟 ([\da-z、]+)", target):
             for x in n.split("、"):
                 if x and x not in step_nums:
                     errors.append(f"{rid} 對應到不存在的步驟 {x}")

@@ -1,4 +1,4 @@
-import { is_announcement, validate_announcement, validate_payload, type ChainReader, type Trust } from './chain.ts';
+import { is_termination, payload_kind, validate_announcement, validate_payload, type ChainReader, type Trust } from './chain.ts';
 import { CHAIN_NETWORKS, encode_commitment, encode_commitment_v1, FORMAT_VERSIONS, sha256, unhex, type ChainNetwork, type FormatVersion } from './commitment.ts';
 import { join_url, validate_bundle, type RevealBundle } from './disclosure.ts';
 import { parse_json, validate_manifest, type Json, type Manifest } from './manifest.ts';
@@ -88,7 +88,7 @@ const PENDING = 'The transaction was found but is not Mithril-certified yet; che
 
 /** Checks manifest, salt and public deadline against an already verified commitment record. */
 async function check_record(record: ChainRecord, network: ChainNetwork, manifest: Manifest, salt: Uint8Array, version?: FormatVersion): Promise<Verification> {
-  if (record.metadata === null || is_announcement(record.metadata)) return result('not-found', 'The transaction carries no commitment.', { network });
+  if (record.metadata === null || payload_kind(record.metadata) !== null) return result('not-found', 'The transaction carries no commitment.', { network });
   const payload = validate_payload(record.metadata as never);
   const context = record_context(network, record);
   if (payload.network !== network) return result('network-mismatch', `The commitment is on ${payload.network}, not ${network}.`, { ...context, network: payload.network });
@@ -163,7 +163,8 @@ export async function verify_announcement(tx_hash: string, network: ChainNetwork
     const record = await read_record(reader, tx_hash, network);
     if (record === 'not-found') return done(result('not-found', 'Announcement was not found on the claimed network.', { network }));
     if (record === 'pending') return done(result('pending', PENDING, { network, trust: 'mithril' }));
-    if (!record.metadata || !is_announcement(record.metadata)) return done(result('not-found', 'The transaction carries no disclosure announcement.', { network }));
+    // Commitments and terminations are not announcements; any other kind is validated (and rejected) as one.
+    if (!record.metadata || payload_kind(record.metadata) === null || is_termination(record.metadata)) return done(result('not-found', 'The transaction carries no disclosure announcement.', { network }));
     const announcement = validate_announcement(record.metadata as never);
     announced_at = record.time; announcement_signer = record.registrant;
     if (announcement.network !== network) return done(result('network-mismatch', `The announcement is on ${announcement.network}, not ${network}.`, { network: announcement.network }));

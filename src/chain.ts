@@ -20,7 +20,15 @@ export interface AnnouncementPayload {
   bundle_sha256: string;
   bundle_url: string[];
 }
-export type PublicPayload = CommitmentPayload | AnnouncementPayload;
+/** Registrant's on-chain statement that the commitment will not be disclosed (D8); same signer rule as announcements. */
+export interface TerminationPayload {
+  app: 'cardano-ai-preregistry';
+  format_version: 1;
+  kind: 'terminate';
+  network: Network;
+  commitment_tx_hash: string;
+}
+export type PublicPayload = CommitmentPayload | AnnouncementPayload | TerminationPayload;
 /** Raw bytes from an untrusted transport (indexer, proxy, cache, local file). It carries no time: time is evidence. */
 export interface RawTransaction { cbor: string; }
 /**
@@ -61,11 +69,25 @@ export function validate_announcement(input: AnnouncementPayload): AnnouncementP
   try { join_url(input.bundle_url, input.network === 'devnet'); } catch { throw new Error('Invalid public announcement payload.'); }
   return structuredClone(input);
 }
-export function is_announcement(input: unknown): boolean {
-  return Boolean(input) && typeof input === 'object' && Object.hasOwn(input as object, 'kind');
+export function validate_termination(input: TerminationPayload): TerminationPayload {
+  if (!input || typeof input !== 'object' || !exact_keys(input, ['app', 'format_version', 'kind', 'network', 'commitment_tx_hash']) ||
+    input.app !== 'cardano-ai-preregistry' || input.format_version !== 1 || input.kind !== 'terminate' || !is_network(input.network) ||
+    typeof input.commitment_tx_hash !== 'string' || !HASH.test(input.commitment_tx_hash)) {
+    throw new Error('Invalid public termination payload.');
+  }
+  return structuredClone(input);
 }
+/** `null` for a commitment (it has no `kind`); otherwise the claimed kind, still unvalidated. */
+export function payload_kind(input: unknown): unknown {
+  return input && typeof input === 'object' && Object.hasOwn(input, 'kind') ? (input as { kind: unknown }).kind : null;
+}
+export function is_announcement(input: unknown): boolean { return payload_kind(input) === 'reveal'; }
+export function is_termination(input: unknown): boolean { return payload_kind(input) === 'terminate'; }
 export function validate_public_payload(input: PublicPayload): PublicPayload {
-  return is_announcement(input) ? validate_announcement(input as AnnouncementPayload) : validate_payload(input as CommitmentPayload);
+  const kind = payload_kind(input);
+  if (kind === null) return validate_payload(input as CommitmentPayload);
+  if (kind === 'terminate') return validate_termination(input as TerminationPayload);
+  return validate_announcement(input as AnnouncementPayload);
 }
 
 /** Local demo chain: real-format transactions signed by public demo keys, verified like any other source. */
@@ -81,6 +103,7 @@ export class FakeChain implements ChainReader {
     return this.submit(validate_payload(payload), signer);
   }
   async announce(payload: AnnouncementPayload, signer = DEMO_KEY): Promise<string> { return this.submit(validate_announcement(payload), signer); }
+  async terminate(payload: TerminationPayload, signer = DEMO_KEY): Promise<string> { return this.submit(validate_termination(payload), signer); }
   async get_transaction(tx_hash: string, network: ChainNetwork): Promise<RawTransaction | null> {
     const tx = this.txs.get(tx_hash);
     return tx?.network === network ? { cbor: tx.cbor } : null;

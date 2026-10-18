@@ -22,6 +22,14 @@ const mutations = [
   { name: 'time-not-from-slot', file: 'src/verifier.ts', from: 'time: slot_time(network, inclusion.slot)', to: 'time: new Date().toISOString()', args: ['test', '--', 'tests/unit/trust.test.ts', '-t', 'certified slot'] },
   { name: 'proof-root-unchecked', file: 'src/mithril.ts', from: 'return client.verify_message_match_certificate(message, certificate);', to: 'return message !== undefined || true;', args: ['test', '--', 'tests/unit/mithril.test.ts', '-t', 'root is not in the certificate'] },
   { name: 'scripts-accepted', file: 'src/transaction.ts', from: "if (witnesses.keys().some(k => typeof k !== 'number' || !WITNESS_KEYS.has(k))) throw", to: 'if (false) throw', args: ['test', '--', 'tests/unit/transaction.test.ts', '-t', 'run scripts'] },
+  // Step 8b registry (D8, D15, D19, I7).
+  { name: 'termination-ignored', file: 'src/registry.ts', from: "if (termination) status = 'terminated';", to: "if (false) status = 'terminated';", args: ['test', '--', 'tests/unit/registry.test.ts', '-t', 'termination wins'] },
+  { name: 'termination-signer-unchecked', file: 'src/registry.ts', from: "e.signer !== c.signer ? 'signer-mismatch' : e.inclusion", to: 'e.inclusion', args: ['test', '--', 'tests/unit/registry.test.ts', '-t', 'forger cannot terminate'] },
+  { name: 'absence-basis-dropped', file: 'src/registry.ts', from: 'absence: termination ? null : input.scan,', to: 'absence: null,', args: ['test', '--', 'tests/unit/registry.test.ts', '-t', 'rest on absence'] },
+  { name: 'deadline-exclusive', file: 'src/registry.ts', from: 'Date.parse(time) <= Date.parse(deadline)', to: 'Date.parse(time) < Date.parse(deadline)', args: ['test', '--', 'tests/unit/registry.test.ts', '-t', 'exactly at the deadline'] },
+  { name: 'provisional-dropped', file: 'src/registry.ts', from: 'provisional: rests_on.some(shallow),', to: 'provisional: false,', args: ['test', '--', 'tests/unit/registry.test.ts', '-t', 'provisional until'] },
+  { name: 'events-not-deduplicated', file: 'src/registry.ts', from: 'const events = unique(input.events).sort(order);', to: 'const events = [...input.events].sort(order);', args: ['test', '--', 'tests/unit/registry.test.ts', '-t', 'as a set'] },
+  { name: 'latest-reveal-decides', file: 'src/registry.ts', from: "?? reveals[0];", to: '?? reveals.at(-1);', args: ['test', '--', 'tests/unit/registry.test.ts', '-t', 'earliest reveal decides'] },
 ];
 for (const mutation of mutations) {
   const file = path.join(root, mutation.file);

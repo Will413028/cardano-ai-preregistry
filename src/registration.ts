@@ -1,4 +1,4 @@
-import { is_announcement, validate_public_payload, type PublicPayload } from './chain.ts';
+import { payload_kind, validate_public_payload, type PublicPayload } from './chain.ts';
 import { FORMAT_VERSION } from './commitment.ts';
 import { canonicalize, type Json } from './manifest.ts';
 import { METADATA_LABEL } from './transaction.ts';
@@ -32,7 +32,7 @@ export function public_metadata(payload: PublicPayload): Record<string, PublicPa
   return { [METADATA_LABEL]: validate_public_payload(payload) };
 }
 export function check_transaction(tx: string, payload: PublicPayload, registrant: string, inspect: InspectTransaction): TransactionInspection {
-  if (!is_announcement(payload) && payload.format_version !== FORMAT_VERSION) throw new Error('New registrations use the current commitment format.');
+  if (payload_kind(payload) === null && payload.format_version !== FORMAT_VERSION) throw new Error('New registrations use the current commitment format.');
   const view = inspect(tx);
   if (view.network_id !== 0) throw new Error('Only testnet transactions are allowed.');
   if (view.fee < 0n || view.fee > MAX_FEE) throw new Error('Fee exceeds the 300000 lovelace limit.');

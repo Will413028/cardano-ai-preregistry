@@ -45,7 +45,7 @@
 | I2 同一份 commitment 輸入（格式依 D5、D6）在所有實作得到同一 bytes 與同一 hash；編碼內含格式版本與 domain tag | `canonicalize`、`encode_commitment`、`verify_reveal`；步驟 3 的 `test-vectors.json`（跨語言共用） |
 | I3 manifest 與 salt 在揭露前不離開使用者端或使用者選的私密儲存；送上鏈與送到服務端的 payload 只含白名單欄位；`reveal_deadline` 是明確允許公開的 manifest 欄位（D8），其餘 manifest 內容與 salt 不公開 | `cli` 或 `web` 的 commit 流程、`ChainWriter` 的 payload 建構函式（欄位白名單） |
 | I4 驗證只信任密碼學檢查與 Mithril 信任根（D13）：原始交易 CBOR 的 tx hash、auxiliary data hash、vkey witness，加上 Mithril v2 inclusion proof；資料來源、proxy 與檔案主機都只是不可信的傳輸，換來源不改變核對結果；揭露包與檔案可來自任何來源，以 hash 核對。依「沒找到」判定的結果標明來源與掃描到的區塊，登記者可用有證明的交易推翻（D15） | `verify_reveal`、`verify_announcement`、`ChainReader`（回傳原始 CBOR 與 proof，至少兩個實作：Koios＋Mithril 或本機 devnet，以及 fixture）、交易解析與 witness 驗證模組（步驟 7b）、`derive_status` 的「沒找到」判定 |
-| I5 登記狀態只由 `derive_status` 從鏈上事件、揭露內容與揭露期限（依 D8）推導，營運者不能手動設定 | `derive_status`、`registry` 的路由表、`web` 的狀態頁；路由表不得有寫入狀態的路由 |
+| I5 登記狀態只由 `derive_status` 從鏈上事件、揭露內容與揭露期限（依 D8）推導，營運者不能手動設定 | `derive_status`（純函式）、`registry` 的匯出（不得有設定狀態的函式）、轉送層 `/api/cardano` 的路由表（只有 GET 白名單，不得有寫入或狀態路由，D18）、`web` 的狀態頁與 Node CLI |
 | I6 對讀者的每個輸出都帶驗證邊界，不宣稱證明了真實執行、執行時間、結果真實、評分公平或全部登記 | `verify_reveal` 的輸出格式、`web` 的狀態頁與詳情頁、README |
 | I7 commitment 歸屬於登記者身分（D4、D14）：身分是 tx body `required_signers` 中唯一、且有有效 vkey witness 的 key hash；格式 v2 起登記者 key hash 參與 commitment hash，複製別人的 commitment 不能核對成自己的 | `ChainWriter` 的 required signer、`encode_commitment` v2 的 preimage、交易解析與 witness 驗證模組、`registry` 依登記者分組、`web` 的登記者頁 |
 | I8 每份 manifest 的 salt 唯一、不重用 | `cli` 或 `web` 的 salt 產生函式；`registry` 偵測重複 commitment hash |
@@ -67,8 +67,10 @@
   - 自架節點 reader（可從 Mithril 認證的 `CardanoDatabase` snapshot 啟動），也是唯一能完整證明「不存在」的來源——觸發條件：有使用者不接受 Mithril 的信任假設，或要求「不存在」判定不依賴單一 indexer（D13、D15）。
   - 第二個獨立 indexer 交叉比對（例如 Blockfrost，需要帳號與 key）——觸發條件：Koios 的「沒找到」判定被登記者以 proof 推翻過，或步驟 9 量測顯示 Koios 漏資料（D15）。
   - 以寫死的 genesis certificate hash 區分 preprod 與 preview（D16 的 B）——觸發條件：D10 改選 mainnet 前重新評估，或有使用者以 preview 交易冒充 preprod。
-  - devnet 交易 bytes 的來源：Yaci Store 0.1.0 不存 CBOR，網頁只能核對本 tab 送出的 devnet 交易，integration 腳本用自己保存的已簽交易——觸發條件：步驟 8 要列出 devnet 登記，或要讓別人核對 devnet 交易；屆時評估上傳交易 CBOR、把 CBOR 放進 draft／揭露包，或換能回傳 CBOR 的本機 indexer（2026-10-18 設計審查）。
-  - 開發快取 `/api/cardano` 與 read proxy 的去留：D9 的前提（有部署的伺服器）已不成立，7b 只把它留作 dev-only、不被信任的傳輸——觸發條件：步驟 8 設計索引快取時，依「沒有伺服器」重新決定保留或刪除（2026-10-18 設計審查）。
+  - devnet 交易 bytes 的來源：Yaci Store 0.1.0 不存 CBOR；步驟 8 的 devnet 列表只涵蓋本機保存的已簽交易，揭露包自 8a 起帶 commitment 的 CBOR——觸發條件：要讓第三方核對或列出別人的 devnet 交易；屆時換能回傳 CBOR 的本機 indexer（2026-10-18 設計審查，D17 修訂）。
+  - 轉送層的部署（Cloudflare Pages Functions）與額度：8a 只在 dev server 與 `vite preview` 驗收——觸發條件：要公開網站時由 Will 部署；Koios Public 每日 5000 額度或共用出口 IP 的限流不足時，在轉送層加 Koios key（secret，Will 設）（D17）。
+  - 改回瀏覽器直連 Koios——觸發條件：Koios Public 的實際回應開始帶 `Access-Control-Allow-Origin`（D17）。
+  - mainnet 的定案深度：D19 以 k 只標「暫定」、不延後狀態——觸發條件：D10 改選 mainnet 前重新評估是否改為未滿 k 不計入。
   - Mithril WASM 升級——觸發條件：v2 transaction proof 不再標 unstable，或 0.10.12 以上版本進 npm `latest`；升級時重跑步驟 7b 的驗收（D13）。
 
 ## 步驟
@@ -124,6 +126,7 @@
   - 停止條件：D6 或 D7 未決。
   - 需要人做的事：若 D7 選第三方儲存，帳號註冊與費用；若 `make integration` 要在 CI 跑，API key 由 repo 擁有者設成 GitHub secret。
 - [x] **7b. 信任模型：自驗交易、Mithril 證明與綁定登記者**（被擋於：步驟 7；D13、D14、D15；D16）
+  - 2026-10-18 步驟 8 開工前更正：子項 6 的「Koios 允許跨來源讀取」不成立——Koios Public preprod 只在 preflight 回 `Access-Control-Allow-Origin`，實際回應沒有，真實 Chromium 從任何 origin 讀 `/tip`、`/tx_by_metalabel`、`/tx_cbor` 都被 CORS 擋（Mithril aggregator 正常）；7b 的 E2E 以 `page.route` 自帶該 header 而沒抓到，Playwright 也只跑 dev server。因此 build 出的網站在 preprod 的讀寫不可用；由 D17 與步驟 8a 接手，以下保留為完成時的紀錄。
   - 範圍：依序做，每個子項各有驗收，一個 session 做不完時在此拆成子步驟。
     1. Spike：在 Vite build 的瀏覽器頁面以 `@mithril-dev/mithril-client-wasm` 0.10.12（鎖定版本）對 preprod 公開樣本 tx 取得並驗證 v2 transaction proof 與 certificate chain，量載入體積與時間，記錄 API 名稱與 unstable 開關，確認 proof 的 Merkle root 與已認證 message 的比對步驟；產出離線測試的做法：錄製 certificate chain 到 genesis 的回應，或用 Mithril 的 `mithril-aggregator-fake` 供應 fixture，並讓 vitest 下的 WASM client 不連外；確認 devnet（Yaci）能否被瀏覽器跨來源直讀；產出 `docs/plans/2026-10-01-preregistry-mvp/spike-mithril.md`。拋棄式程式碼放 `spikes/mithril/`。——2026-10-18 完成，停止條件未觸發；發現 preprod 與 preview 共用 genesis key（D16）、冷啟動 chain 驗證約 1 分鐘，見 spike-mithril.md。
     2. 格式 v2：commitment preimage 在網路之後加入登記者 payment key hash（28 bytes，明確長度編碼），新增 v2 測試向量；v1 向量與 v1 驗證保留（格式版本規則），verifier 依 `format_version` 分派；新的登記一律用 v2，v1 核對結果標「未綁定登記者」；登記流程先連錢包並選定登記者 key（錢包 change address 的 payment key），再計算 hash，交易以 `required_signers` 要求同一把 key；local demo 用固定的 28-byte demo key hash，標明不是鏈上證據；跨語言向量由 `scripts/generate-vectors.py` 獨立產生（I2）；`docs/commitment-v1.md` 補 v2 規格（或另立 `commitment-v2.md`）。
@@ -157,13 +160,25 @@
   - 停止條件：spike 顯示 v2 proof 無法在瀏覽器驗證，或 0.10.12 無法在 Vite build 使用——停下回報，交 Will 選 D13 的替代（v1 stable，時間只到 15 塊範圍）；Mithril preprod aggregator 不可用；交易 fee 超過 300000 lovelace（D10）。
   - 需要人做的事：下載 npm 套件（依全域授權直接做）；preprod 真實 extension 驗收時一併測 CIP-30 錢包對 required signer 的簽署行為（與步驟 6、7 的未驗收項相同）。
   - 完成後的狀態：步驟 8 改建在本步的 reader 與 verifier 介面上；devnet 上 v1 的兩筆舊交易仍可依 v1 核對。
-- [ ] **8. 切片：登記狀態介面**（被擋於：步驟 7b、步驟 4；D2、D8、D9、D12、D13、D15；D4（決定 I7 是否存在））
-  - 範圍：`registry` 從 Koios 列出 D12 選定 label 下的交易，逐筆依步驟 7b 的自驗路徑（原始 CBOR＋Mithril proof）確認內容、登記者與 slot；Koios、proxy 與快取都是不可信的傳輸，adapter 可替換；cache 保存鏈資料／事件並實作增量排序、去重、watermark、重疊重掃、rollback 與 request 控制。以 `derive_status` 依 D8 的狀態列舉與規則推導狀態（I5），依 D4、D14 歸屬到登記者（I7），標明網路（I9）；按期／逾期依有效揭露公告經 Mithril 認證的 slot 與登記 metadata 期限比較，不依服務觀測或自述時間；依「沒找到」判定的狀態（尚未揭露、逾期未揭露、未終止、列表完整性、I8 重複偵測）標明來源與掃描到的區塊，任何人提交有證明的公告或終止交易即可推翻（D15）；揭露包 hash 與公告不符不得回報一致；依 D2 提供網頁或 CLI 列表與唯讀 API（R07、R13），每筆可連到 `verify_reveal` 結果；終止紀錄依 D8 實作（R12）：metadata 引用原 commitment tx hash，獨立核對簽署者身分與原登記者一致；不相符的終止事件不得變更狀態，原 commitment 與事件歷史保留；終止後補揭露仍可核對，主狀態保留已終止，另呈現一致／不一致結果。
-  - 消費端：`rg -n "derive_status|RegistryIndex|list_commitments" src tests`（預計：`web`、`cli`）。
-  - 不能動：I5（狀態只由 `derive_status` 產生）、I6、I9。
-  - 驗收：`make check` 綠：fixture 測試索引重複頁、重疊掃描與 rollback 後重算，以及快取命中不重複呼叫上游、proxy 拒絕非白名單查詢；再測揭露公告的身分、原 commitment 引用與 bundle hash；偽造者公告不得變更原登記狀態；公告經 Mithril 認證的 slot 換算時間等於期限視為按期，晚於期限視為逾期，等待認證時不判定，揭露文件可取得性另驗；「沒找到」的判定輸出含來源與掃描到的區塊，fixture 中被來源漏掉的公告，經任何人提交其 CBOR 與 proof 後狀態改為已揭露；再測終止後補揭露的一致／不一致結果均不覆蓋已終止主狀態；另測逾期補揭露回報已揭露（一致／不一致）且保留逾期揭露標記；再測期限前／後未揭露分別為尚未揭露／逾期未揭露，使用登記 metadata 的公開期限；並涵蓋 D8 列舉的每個狀態，以及「已揭露但 mismatch」「揭露檔案取不到」；I5 測試＝(a) 斷言路由表沒有任何對狀態的 POST／PUT／PATCH／DELETE 路由，(b) 以 fixture 鏈資料重算整個列表並與輸出逐筆相等。mutation：把終止判成尚未揭露，狀態測試必須失敗；忽略終止事件的登記者身分核對（required signer 與 witness），冒用終止 fixture 必須失敗；「沒找到」輸出拿掉來源與區塊，對應測試必須失敗；在路由表加一條 `PATCH /commitments/{id}/status`，I5(a) 必須失敗。
-  - 停止條件：D2、D8、D9、D12 任一未決；步驟 4 結論為沒有可用的免費資料來源。
-  - 需要人做的事：若 D2 包含公開網頁，部署平台的帳號與網域由 repo 擁有者處理。
+- [ ] **8. 切片：登記狀態介面**（被擋於：步驟 7b、步驟 4；D2、D8、D9、D12、D13、D15、D17、D18、D19；D4（決定 I7 是否存在））
+  - 2026-10-18 開工前依 D17–D19 拆成 8a–8d，各有驗收；執行順序 8b → 8a → 8c → 8d（8b 只用 fixture，不依賴傳輸）。共同目標不變：`registry` 列出 label 86741 下的交易，逐筆依步驟 7b 的自驗路徑（原始 CBOR＋Mithril proof）確認內容、登記者與 slot；以 `derive_status` 依 D8 推導狀態（I5），依 D4、D14 歸屬到登記者（I7），標明網路（I9、D16），每個輸出帶驗證邊界（I6）。
+  - 消費端：`rg -n "derive_status|list_registrations|RegistryEvent|TerminationPayload|api/cardano|PublicChainData|web_reader|Transport" src scripts tests`（2026-10-18：後四個樣式的現有呼叫端為 `src/readers.ts`、`src/mesh-wallet.ts`、`src/main.ts`、`scripts/cardano-api.ts`、`tests/e2e/wallet.spec.ts`；另有命令抓不到的 `scripts/mutations.mjs`（以原始碼字串為目標）與 `vite.config.ts`）。
+  - 不能動：I5（狀態只由 `derive_status` 產生）、I6、I9；7b 的自驗與錯誤模型（`unavailable`／`invalid`）；label 86741、commitment 與公告格式。
+  - [ ] **8a. 轉送層與寫入端去 Koios**（被擋於：D17）
+    - 範圍：依 D17 把 `/api/cardano` 定為正式、不被信任的同源轉送層：handler 改用純 `fetch`（不依賴 Mesh／Node 專屬 API），只接受 body-free GET 的白名單查詢（`tx` CBOR 批次、`label` 分頁、`tip`），回 Koios 原始回應，快取共用且只存原始資料；同一個 handler 供 Vite dev server、`vite preview` 與部署目標（Cloudflare Pages Functions）使用。網頁的 preprod 讀取一律經同源轉送層，刪除 transport 選單與 `/api/read` fixture proxy；`KoiosTransactions` 直連只留給 Node（integration、CLI）。寫入端不再讀 Koios：protocol parameters 改為程式常數（附來源與核對日期，fee 仍受 300000 上限守住），刪除對錢包 input UTxO 的 Koios 交叉檢查（ledger 送出時拒絕壞 input），`PublicChainData` 只剩 devnet 的 Yaci。登記後把 commitment 交易的已簽 CBOR 存進私密草稿與揭露包（新欄位，`validate_bundle` 接受舊包），verifier 有 CBOR 時以它為 bytes 來源，只向 Mithril 取 inclusion。修正 7b 的紀錄（見 7b 段首）與 E2E：route 不再假造 Koios 的 CORS header，改攔同源路徑。
+    - 驗收：`make check` 綠；轉送層單元測試：非白名單參數、帶 body、非 GET 都拒絕，同一查詢第二次命中快取不打上游，路由表只有 GET（I5(a) 的一半）；E2E：preprod 讀取只出現同源 request（斷言沒有對 `koios.rest` 的瀏覽器 request）；揭露包內含 CBOR 時 URL 與 Koios 全失效仍 `match`；`make integration` 新增：`vite build` 後以 `vite preview` 起站，瀏覽器經轉送層對 preprod 實打 `tip`、label 列表與樣本 tx 的 `tx_cbor` 成功。mutation：handler 放行非白名單參數，對應測試必須失敗；verifier 忽略揭露包內的 CBOR（改回只向 reader 取），「來源全失效仍 match」測試必須失敗。
+    - 需要人做的事：部署到 Cloudflare（帳號、專案、網域）由 Will 進行或授權；不擋 8a 驗收。
+  - [ ] **8b. `registry` 事件模型與 `derive_status`（fixture）**（被擋於：D8、D15、D19；終止格式 2026-10-18 Will 確認）
+    - 範圍：新增終止 payload `kind: 'terminate'`（app、`format_version` 1、network、`commitment_tx_hash`；label 86741；身分＝required signer＋witness，同公告規則）的 schema、驗證與測試向量（上鏈後凍結）；`registry` 把已自驗的交易轉成事件（登記、公告、終止），依登記者分組（I7），偵測重複 commitment hash（I8）；`derive_status` 是純函式，輸入事件集合、揭露核對結果、掃描範圍（來源、掃描到的 block）與 Mithril 認證 tip，輸出 D8 的主狀態（尚未揭露／逾期未揭露／已揭露（一致）／已揭露（不一致）／揭露檔案取不到／已終止）、逾期揭露標記、終止後補揭露的一致／不一致、事件歷史；按期／逾期以公告的認證 slot 換算時間與登記 metadata 的 `reveal_deadline` 比較（等於期限為按期）；未認證事件只進歷史、不改狀態；依 D19 深度未滿 k（preprod 2160 blocks，常數）的事件標「暫定」；依「沒找到」判定的狀態附來源與掃描到的 block（D15），補上有證明的交易後重算即推翻；簽署者不是原登記者的公告或終止只進歷史並標明，不改狀態。
+    - 驗收：`make check` 綠，fixture 涵蓋 D8 每個主狀態，以及：期限前／後未揭露；按期（等於期限）與逾期公告；逾期補揭露保留標記；終止後補揭露一致／不一致都不覆蓋已終止；偽造者的公告與終止不改狀態；揭露包 hash 與公告不符不回一致；等待認證不判定；深度未滿 k 標暫定；被來源漏掉的公告補上後改為已揭露；重複 commitment hash 被標出；I5(b) 以 fixture 鏈資料重算整個列表與輸出逐筆相等；`registry` 沒有設定狀態的匯出（型別測試）。mutation：終止判成尚未揭露；忽略終止事件的登記者核對；「沒找到」輸出拿掉來源與 block；按期比較改成 `<`（等於期限變逾期）；拿掉暫定標記——對應測試各自必須失敗。
+  - [ ] **8c. 索引同步與快取**（被擋於：8a、8b）
+    - 範圍：`list_registrations` 經 `ChainReader` 之外的列表傳輸（轉送層的 `label` 查詢，Node 端可直連 Koios）以 `order=block_height.asc,tx_hash.asc` 分頁，去重、以已認證的最高 block 為 watermark、每次重掃 watermark 前 10 個 block、處理 rollback（重掃時來源不再列出且未認證的項目移除；已認證的項目不因漏列刪除，D15）、限制併發與每次同步的 request 數；逐筆取 CBOR（批次 `tx_cbor`）自驗並向 Mithril 取 inclusion；瀏覽器以 IndexedDB 保存已自驗的事件與 watermark，狀態每次由 `derive_status` 重算，不快取狀態（I5）。依 I9／D16 過濾 metadata 網路與來源網路不符的項目，輸出標 Mithril 不區分 preprod 與 preview。devnet 列表只涵蓋本機保存的已簽交易（Yaci 不存 CBOR，見延後）。
+    - 驗收：`make check` 綠：fixture 傳輸測重複頁、重疊重掃、rollback 後重算、漏列的已認證項目保留、網路不符被過濾、同步 request 數不超過上限、IndexedDB 重新載入後不重抓已有事件；`make integration`：preprod 經 Node 直連 Koios 與 Mithril 跑一次完整同步（目前預期空列表，記錄掃描到的 block）；devnet 以 integration 腳本保存的交易跑登記＋公告＋終止並列出正確狀態。mutation：去重拿掉，重複頁測試必須失敗；不重掃重疊區間，rollback 測試必須失敗。
+  - [ ] **8d. 終止寫入、狀態介面與 CLI**（被擋於：8c；D18）
+    - 範圍：網頁以 CIP-30 送出終止交易（required signer＝登記者，送出前 `verify_transaction` 證明同一登記者，fee 上限 300000）；狀態列表頁、登記者頁、詳情頁（事件歷史、每筆連到核對結果、驗證邊界 I6、信任邊界、網路標示 I9、暫定標記、「沒找到」的來源與掃描 block）；依 D18 匯出 `list_registrations`、`derive_status` 並提供 Node CLI（`npm run registry -- --network <n> --json`），讀者端自驗後推導，轉送層不回狀態。
+    - 驗收：`make check` 綠；E2E（devnet mock 錢包）：登記 → 終止 → 列表顯示已終止，終止後補揭露顯示一致結果且主狀態仍已終止；375px 無橫向 overflow；列表與詳情的驗證邊界文字快照測試；CLI 對 fixture 輸出與網頁同一份 `derive_status` 結果；I5(a)：斷言轉送層路由表只有 GET 白名單、沒有任何寫入或狀態路由。mutation：在轉送層加一條 `PATCH` 狀態路由，I5(a) 必須失敗；列表刪掉驗證邊界輸出，快照測試必須失敗。`make integration`：devnet 真實終止交易 fee ≤ 300000 並列為已終止。
+    - 需要人做的事：preprod 真實 extension 簽署終止交易（與 6、7、7b 的未驗收項同批）。
+  - 停止條件：步驟 4 結論為沒有可用的免費資料來源；轉送層在 `vite preview` 下仍無法讀 Koios（8a）；終止交易 fee 超過 300000 lovelace。
 - [ ] **9. 硬化**（被擋於：步驟 8；D10 決定是否包含 mainnet 準備）
   - 範圍：依 `non-functional.md` 把「未決」的門檻定成數字並加測試（登記延遲、verifier 時間、檔案大小上限、每日 request 預算）；對抗測試補齊（重放他人 commitment 的狀態頁呈現（核對防護已在步驟 7b）、同一登記者多筆承諾只揭露一筆時狀態頁要顯示其餘未揭露、格式版本未知時 verifier 的行為、重複 commitment hash 的偵測）；錯誤輸出結構化。若 D10 選 mainnet，凍結當時的新登記格式（D14 起為 v2；I1），v1 保留為 verifier 必須持續支援的舊版本，並寫格式規格文件。
   - 消費端：`rg -n "ChainWriter|ChainReader|verify_reveal|derive_status" src tests`。
@@ -265,6 +280,26 @@ Will 於 2026-10-01 已拍板 P-授權與 D1–D12；LICENSE 已選 MIT。ADR �
   - 業界基線：SPV 與 light client 以寫死的 genesis／checkpoint 區分網路；Mithril 官方設定讓兩個測試網共用 genesis key，未提供另一個網路識別。
   - 選 A 時 I9 改寫為「mainnet 與測試網由寫死的 genesis key 區分」；mainnet 上線前（D10 延後項）重新評估。
   - 結論：A；I9 已改寫；B 列入延後並附觸發條件；ADR：待整理。
+- **D17 靜態網站取得鏈上資料的方式**（狀態：已決 2026-10-18，Will；擋住步驟：無（已決）；影響步驟：8a、8c、8d；需要的事實：2026-10-18 實測 Koios Public preprod 實際回應不帶 `Access-Control-Allow-Origin`，Chromium 跨來源讀取全被擋，Mithril aggregator 可讀；Koios 帶 key 的方案是否開 CORS 未測（tiers 頁 502、需帳號））
+  - 業界基線：證明隨檔案走、讀者對信任根自驗（Sigstore bundle、SPV），索引只負責「發現」；需要第三方 indexer 又無 CORS 的前端多經自有薄後端或 edge function 轉送（推論）。
+  - 拆解：寫入不需 Koios（錢包 `submitTx`；protocol parameters 改常數；UTxO 由 ledger 送出時把關）；單筆核對在揭露包帶 CBOR 後只需 Mithril；只有列表與「沒找到」判定需要大量 bytes。
+  - A：同源、不被信任的轉送層＋共用快取（部署目標 Cloudflare Pages Functions）——取捨：新鮮、任意 tx 可查、守住 D9 的共用額度；需部署與帳號，Worker 相容性與共用出口 IP 限流未測。（建議）
+  - B：CI 排程快照成靜態 JSON——取捨：無執行期伺服器、額度固定；新交易延遲到下一次排程。
+  - C：只提供 CLI 列表——取捨：零部署；要改 D2。
+  - D：瀏覽器帶 Koios Free／Blockfrost key——取捨：key 公開只損額度；CORS 未測、需帳號。
+  - 約束：Koios Public 無 CORS（REAL，實測）；不註冊帳號與部署需 Will 同意（SELF-IMPOSED 的授權閘門）；步驟 7「verifier 不得呼叫營運者自有端點」由 D13／I4 取代——轉送層只是不被信任的傳輸。
+  - 結論：A，並一併採用「寫入端去 Koios」與「揭露包帶 commitment CBOR」；延後項 `/api/cardano` 去留以保留並轉為正式轉送層結案；終態：轉送層＋讀者自驗，Koios 開放 CORS 時可改回直連；ADR：待整理。
+- **D18 R13「讀者以程式查詢」的形式**（狀態：已決 2026-10-18，Will；擋住步驟：無（已決）；影響步驟：8d；需要的事實：D17（轉送層不被信任）、I4）
+  - 業界基線：判定在讀者端的函式庫／CLI（cosign verify、Certificate Transparency monitor），伺服器只給原始資料。
+  - A：匯出 `list_registrations`、`derive_status`＋Node CLI，讀者端自驗後推導；I5(a) 改為斷言轉送層只有 GET 白名單路由、`registry` 沒有設定狀態的匯出。（建議）
+  - B：轉送層回推導好的狀態 JSON——取捨：方便；讀者要信任轉送層，與 I4 衝突。
+  - 結論：A；ADR：待整理。
+- **D19 Mithril 認證後的定案深度**（狀態：已決 2026-10-18，Will；擋住步驟：無（已決）；影響步驟：8b、8d；需要的事實：Mithril 認證約落後 tip 5 塊，不等於 k 深度的不可逆（7b 設計審查）；preprod k＝2160）
+  - A：認證即計入，不標示。
+  - B：認證即計入，深度未滿 k 標「暫定」；按期／逾期一律用認證 slot。（建議）
+  - C：深度滿 k 才計入——取捨：最保守；preprod 約延 12 小時。
+  - 結論：B；未認證事件只進事件歷史、不改 D8 狀態；mainnet 前重評（延後）；ADR：待整理。
+- 終止交易格式（D8 範圍內，2026-10-18 Will 確認）：metadata `kind: 'terminate'`，欄位 app、`format_version` 1、network、`commitment_tx_hash`，label 86741，身分規則同公告；一經上鏈其測試向量凍結。
 
 拍板順序：
 1. 現在可拍：P-授權（前提，不是決定題，但擋住所有步驟）與 D1（不依賴其他題）。
@@ -273,7 +308,7 @@ Will 於 2026-10-01 已拍板 P-授權與 D1–D12；LICENSE 已選 MIT。ADR �
 4. 步驟 2 完成後交 D3、D4、D10（互相影響，同一批交出）；步驟 4 完成後交 D12。
 5. 步驟 3 完成後交 D5、D6（同一批）。
 6. D3、D4 拍板且步驟 4 完成後交 D8、D9。
-P-授權已確認；Will 指示先執行步驟 2、3（產出事實，不是產品程式碼）。D1=B、D2=B、D7=A 已決；步驟 2、3 已完成；D3=A、D4=A、D10=A（每筆 fee 上限 0.3 測試 ADA）已決；D5、D6、D11（TypeScript＋Mesh）已決。步驟 4 依公開樣本範圍完成，D12=D 已決，D8 已決（期限必填、公開期限、鏈上終止／揭露公告及狀態語意），D9 已決（Koios Public＋可替換 ChainReader＋同源 read proxy／共用索引快取）。12 題決定皆已拍板；LICENSE 已確認 MIT，ADR 待集中整理。2026-10-18 步驟 7 完成後依業界做法重新檢視信任模型，Will 拍板 D13–D15，並修訂 D4、D6、D8、D9，新增步驟 7b。同日步驟 7b 子項 1 的 spike 後，Will 拍板 D16=A，改寫 I9。
+P-授權已確認；Will 指示先執行步驟 2、3（產出事實，不是產品程式碼）。D1=B、D2=B、D7=A 已決；步驟 2、3 已完成；D3=A、D4=A、D10=A（每筆 fee 上限 0.3 測試 ADA）已決；D5、D6、D11（TypeScript＋Mesh）已決。步驟 4 依公開樣本範圍完成，D12=D 已決，D8 已決（期限必填、公開期限、鏈上終止／揭露公告及狀態語意），D9 已決（Koios Public＋可替換 ChainReader＋同源 read proxy／共用索引快取）。12 題決定皆已拍板；LICENSE 已確認 MIT，ADR 待集中整理。2026-10-18 步驟 7 完成後依業界做法重新檢視信任模型，Will 拍板 D13–D15，並修訂 D4、D6、D8、D9，新增步驟 7b。同日步驟 7b 子項 1 的 spike 後，Will 拍板 D16=A，改寫 I9。同日步驟 8 開工前實測 Koios Public 無 CORS，經獨立 subagent 審查簡報後，Will 拍板 D17=A、D18=A、D19=B 並確認終止格式；步驟 8 拆為 8a–8d。
 
 ## 進度
 
@@ -289,7 +324,10 @@ P-授權已確認；Will 指示先執行步驟 2、3（產出事實，不是產�
 | 6 切片：登記 | 完成 | 本機與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/36884486573) 的 lint/build、46 unit、6 E2E、5 mutation 通過；真實 devnet fee176413／hash、deadline、registrant match；獨立審查已處理，見 registration.md | 真實瀏覽器 extension／preprod 公網 finality 未測；揭露公告與完整索引屬後續步驟 | `52c23fd`、`a0e257a`、`398652f` |
 | 7 切片：揭露與核對 | 完成 | 本機 Node 22 與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/39063030487) 的 lint／build、66 unit、8 E2E、8 mutation 通過；真實 devnet 登記＋公告（fee 186269、URL 3 段）以 Yaci reader 與 loopback 託管核對 match，換檔 mismatch、移除 bundle files-unavailable；Koios reader read-only 通過；獨立審查已處理，見 disclosure.md | preprod extension 簽署、公網託管與 CORS、Koios 解析真實 app 公告未測；網頁鏈上讀取經同源 proxy（D9 與 I4 的張力）：2026-10-18 由 D13–D15 決定，步驟 7b 處理 | `8fd0123`、`a4b7881`、`575f2cb` |
 | 7b 信任模型 | 完成 | 本機 Node 22 與 [Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/39098416679)：lint／build、102 unit、9 E2E、14 mutation 通過；spike（Chromium＋Node 驗 preprod v2 proof）；live `make integration`：Koios bytes＋Mithril 驗公開樣本 hash、witness 1/1、slot 136492696；真實 devnet 格式 v2 登記＋公告 match（fee 176413／186269，本機信任）；產品 Mithril adapter 在 Chromium 驗 live preprod（冷 63 秒、快取 1.2 秒）；獨立 correctness review 與 design-review 已處理，見 trust.md | preprod 真實 extension 簽署與 required signer 行為、preprod app 交易、瀏覽器 Mithril 的自動化 E2E 未測（見 trust.md「未驗收」） | `885b8ce`、`a4ec11d`、`77c3366` |
-| 8 切片：狀態介面 | 未開始 | | | |
+| 8a 轉送層與寫入端去 Koios | 未開始 | | | |
+| 8b registry 與 derive_status | 未開始 | | | |
+| 8c 索引同步與快取 | 未開始 | | | |
+| 8d 終止寫入、狀態介面與 CLI | 未開始 | | | |
 | 9 硬化 | 未開始 | | | |
 | 10 收尾 | 未開始 | | | |
 

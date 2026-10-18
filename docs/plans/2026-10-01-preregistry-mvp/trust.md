@@ -26,7 +26,7 @@
 
 ## 驗收結果
 
-- `make check`（Node 22.23.3）：lint、TypeScript／build、10 個 unit 檔、9 個 Chromium E2E 通過（數量與 CI 結果見進度表）。
+- `make check`（Node 22.23.3）：lint、TypeScript／build、10 個 unit 檔、9 個 Chromium E2E 通過：102 unit、9 E2E；[Linux CI](https://github.com/Will413028/cardano-ai-preregistry/actions/runs/39098416679)（commit `77c3366`）的 `make check` 與 `make mutations` 也全數通過。
 - 對抗測試（`tests/unit/trust.test.ts`、`transaction.test.ts`、`mithril.test.ts`、`mithril-genesis.test.ts`）：
   - 別的 key 複製同一 `commitment_hash` 登記，並用已公開的 manifest 與 salt 發公告：公告與揭露包核對都是 `mismatch`；同一測試裡原登記者的公告是 `match`。
   - reader 回傳別筆交易的 bytes、改 metadata 但 body 不變（auxiliary data hash 不符，在真實 devnet 交易上測）、witness 被移除、witness set 含 script：`unavailable`。來源失效或 Mithril proof 驗不過：`unavailable`。

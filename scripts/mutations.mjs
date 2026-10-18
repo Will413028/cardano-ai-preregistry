@@ -22,6 +22,11 @@ const mutations = [
   { name: 'time-not-from-slot', file: 'src/verifier.ts', from: 'time: slot_time(network, inclusion.slot)', to: 'time: new Date().toISOString()', args: ['test', '--', 'tests/unit/trust.test.ts', '-t', 'certified slot'] },
   { name: 'proof-root-unchecked', file: 'src/mithril.ts', from: 'return client.verify_message_match_certificate(message, certificate);', to: 'return message !== undefined || true;', args: ['test', '--', 'tests/unit/mithril.test.ts', '-t', 'root is not in the certificate'] },
   { name: 'scripts-accepted', file: 'src/transaction.ts', from: "if (witnesses.keys().some(k => typeof k !== 'number' || !WITNESS_KEYS.has(k))) throw", to: 'if (false) throw', args: ['test', '--', 'tests/unit/transaction.test.ts', '-t', 'run scripts'] },
+  // Step 8a relay and carried bytes (D17).
+  { name: 'relay-accepts-any-field', file: 'src/relay.ts', from: "for (const key of params.keys()) if (!FIELDS[kind].includes(key)", to: "for (const key of params.keys()) if (false", args: ['test', '--', 'tests/unit/relay.test.ts', '-t', 'whitelisted public fields'] },
+  { name: 'carried-bytes-ignored', file: 'src/verifier.ts', from: 'const from_carried = carried !== undefined && verifies(carried, tx_hash);', to: 'const from_carried = false;', args: ['test', '--', 'tests/unit/trust.test.ts', '-t', 'carrying the signed commitment'] },
+  { name: 'carried-bytes-imply-inclusion', file: 'src/verifier.ts', from: "return from_carried ? 'unproven' : 'pending';", to: "return 'pending';", args: ['test', '--', 'tests/unit/trust.test.ts', '-t', 'not evidence the transaction is on chain'] },
+  { name: 'relayed-funding-hash-unchecked', file: 'src/mesh-wallet.ts', from: 'if (tx.getId() !== tx_hash) throw', to: 'if (false) throw', args: ['test', '--', 'tests/unit/mesh-wallet.test.ts', '-t', 'funding outputs'] },
   // Step 8b registry (D8, D15, D19, I7).
   { name: 'termination-ignored', file: 'src/registry.ts', from: "if (termination) status = 'terminated';", to: "if (false) status = 'terminated';", args: ['test', '--', 'tests/unit/registry.test.ts', '-t', 'termination wins'] },
   { name: 'termination-signer-unchecked', file: 'src/registry.ts', from: "e.signer !== c.signer ? 'signer-mismatch' : e.inclusion", to: 'e.inclusion', args: ['test', '--', 'tests/unit/registry.test.ts', '-t', 'forger cannot terminate'] },

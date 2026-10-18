@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { test, expect, type Page } from '@playwright/test';
-import { DEFAULT_PROTOCOL_PARAMETERS } from '@meshsdk/core';
-import { test_wallet, tx_id, yaci } from './helpers/wallet.ts';
+import { relay, test_wallet, tx_id, yaci } from './helpers/wallet.ts';
 
 const registrant = test_wallet('e2e registrant'), other = test_wallet('e2e other key');
 /** Installs `window.cardano.mock`; signing and submission run in Node with a real key. */
@@ -24,14 +23,6 @@ async function install_wallet(page: Page, submitted: Map<string, string>, option
   }, { utxo: registrant.utxo_cbor, hold: options.hold_signing === true });
   return { other_key: (value: boolean) => { use_other = value; }, reject_next: () => { reject_next = true; }, sign_calls: () => sign_calls };
 }
-/** Write-side reads through the optional development cache; the page verifies everything it reads itself. */
-async function cache(page: Page, on_tx?: () => Promise<void>) {
-  await page.route('**/api/cardano?**', async route => {
-    const kind = new URL(route.request().url()).searchParams.get('kind');
-    if (kind === 'tx') await on_tx?.();
-    await route.fulfill({ json: kind === 'protocol' ? DEFAULT_PROTOCOL_PARAMETERS : kind === 'utxos' ? [registrant.input] : null });
-  });
-}
 
 test('wallet preparation keeps private data local, requires draft download and preserves it on rejection', async ({ page }) => {
   page.on('pageerror', error => console.error('Wallet browser runtime:', error.message));
@@ -40,12 +31,15 @@ test('wallet preparation keeps private data local, requires draft download and p
   let read_started = false;
   let release_read: (() => void) | undefined;
   page.on('request', r => requests.push(r.url() + (r.postData() ?? '')));
-  await cache(page, async () => { read_started = true; await new Promise<void>(resolve => { release_read = resolve; }); });
+  // The funding transaction is served at once; the readback of the new commitment is held open.
+  await relay(page, [registrant.funding], async wanted => {
+    if (wanted.includes(registrant.funding.tx_hash)) return;
+    read_started = true; await new Promise<void>(resolve => { release_read = resolve; });
+  });
   await page.goto('/');
   const manifest = JSON.parse(await page.locator('#manifest').inputValue());
   manifest.title = 'PRIVATE-WALLET-PLAN-NEVER-SENT';
   await page.locator('#manifest').fill(JSON.stringify(manifest));
-  await page.locator('#read-transport').selectOption('proxy');
   await page.locator('#refresh-wallets').click();
   await expect(page.locator('#wallet option')).toHaveText(['mock'], { timeout: 30000 });
   await page.locator('#prepare').click();
@@ -78,13 +72,14 @@ test('wallet preparation keeps private data local, requires draft download and p
   expect(requests.every(r => !r.includes('PRIVATE-WALLET-PLAN-NEVER-SENT'))).toBe(true);
 });
 
-test('the public Cardano read route rejects private fields, decoded-record queries and write requests', async ({ page }) => {
+test('the relay rejects private fields, decoded-record queries, other networks and write requests', async ({ page }) => {
   await page.goto('/');
-  for (const url of ['/api/cardano?kind=protocol&network=mainnet', '/api/cardano?kind=protocol&network=devnet&salt=private',
-    '/api/cardano?kind=protocol&network=devnet&network=preprod', `/api/cardano?kind=commitment&network=preprod&tx_hash=${'a'.repeat(64)}`]) {
-    expect((await page.request.get(url)).status()).toBe(400);
+  for (const url of ['/api/cardano?kind=tip&network=mainnet', '/api/cardano?kind=tip&network=preprod&salt=private', '/api/cardano?kind=tip&network=devnet',
+    '/api/cardano?kind=tip&network=preprod&network=preprod', '/api/cardano?kind=protocol&network=preprod', `/api/cardano?kind=commitment&network=preprod&tx_hash=${'a'.repeat(64)}`]) {
+    expect((await page.request.get(url)).status(), url).toBe(400);
   }
-  expect((await page.request.post('/api/cardano?kind=protocol&network=devnet', { data: { manifest: 'private' } })).status()).toBe(405);
+  expect((await page.request.post('/api/cardano?kind=tip&network=preprod', { data: { manifest: 'private' } })).status()).toBe(405);
+  expect((await page.request.patch(`/api/cardano?kind=tip&network=preprod`)).status()).toBe(405);
 });
 
 test('devnet: register, self-verify, announce as the registrant and verify, all by direct reads, or with an uploaded bundle', async ({ page }) => {
@@ -159,7 +154,7 @@ test('devnet: register, self-verify, announce as the registrant and verify, all 
   await page.locator('#verify-bundle-file').setInputFiles({ name: 'bundle.json', mimeType: 'application/json', buffer: Buffer.from(bundle_text) });
   await page.locator('#verify-announcement').click();
   await expect(page.locator('[data-status="match"]')).toBeVisible({ timeout: 30000 });
-  // The default build path: protocol parameters, UTxOs and every chain read went to the provider, none to the dev cache.
+  // devnet reads the local node directly: protocol parameters, UTxOs and chain reads, none through the relay.
   expect(requests.some(r => r.startsWith('http://127.0.0.1:18080/api/v1/epochs/latest/parameters'))).toBe(true);
   expect(requests.some(r => r.includes('/api/cardano'))).toBe(false);
   for (const secret of [draft.salt_hex, draft.manifest.title]) {
@@ -167,24 +162,27 @@ test('devnet: register, self-verify, announce as the registrant and verify, all 
   }
   await page.setViewportSize({ width: 375, height: 812 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  // A fresh page has no locally kept bytes; the bundle carries the signed commitment, so it still verifies (D17).
+  expect(JSON.parse(bundle_text).commitment_tx_cbor).toBe(submitted.get(draft.tx_hash));
+  await page.reload();
+  await page.locator('#bundle').fill(bundle_text);
+  await page.locator('#verify-source').selectOption('chain');
+  await page.locator('#verify').click();
+  await expect(page.locator('[data-status="match"]')).toBeVisible({ timeout: 30000 });
 });
 
-test('preprod reads go directly to Koios, and the development cache gives the same result', async ({ page }) => {
+test('preprod reads go only through the same-origin relay, never to Koios from the browser (D17)', async ({ page }) => {
   const requests: string[] = [];
   page.on('request', r => requests.push(r.url()));
-  await page.route('https://preprod.koios.rest/api/v1/tx_cbor', route => route.fulfill({ headers: { 'access-control-allow-origin': '*' }, json: [] }));
-  await cache(page);
+  await relay(page, []);
   await page.goto('/');
   await page.locator('#commit').click();
   await page.locator('#create-bundle').click();
   await expect(page.locator('#bundle-result')).toBeVisible();
+  // A local demo bundle names preprod and carries no bytes; nothing is relayed, so the chain says not found.
   await page.locator('#verify-source').selectOption('chain');
   await page.locator('#verify').click();
   await expect(page.locator('[data-status="not-found"]')).toBeVisible();
-  expect(requests.some(r => r === 'https://preprod.koios.rest/api/v1/tx_cbor')).toBe(true);
-  expect(requests.some(r => r.includes('/api/cardano'))).toBe(false);
-  await page.locator('#read-transport').selectOption('proxy');
-  await page.locator('#verify').click();
-  await expect(page.locator('[data-status="not-found"]')).toBeVisible();
-  expect(requests.some(r => r.includes('/api/cardano?kind=tx'))).toBe(true);
+  expect(requests.some(r => r.includes('/api/cardano?kind=tx&network=preprod'))).toBe(true);
+  expect(requests.some(r => r.includes('koios.rest'))).toBe(false);
 });

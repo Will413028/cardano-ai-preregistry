@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "lint": "eslint src tests scripts *.ts",
+    "lint": "eslint src tests scripts functions *.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:mutations": "node scripts/mutations.mjs",

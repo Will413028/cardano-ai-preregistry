@@ -1,9 +1,9 @@
 import { type ChainReader, type Inclusion, type RawTransaction } from './chain.ts';
 import { type ChainNetwork } from './commitment.ts';
-import { KoiosTransactions, MithrilInclusion, public_reader } from './mithril.ts';
+import { MithrilInclusion, public_reader } from './mithril.ts';
+import { KOIOS, relay_url } from './relay.ts';
 
 export const DEVNET_API = 'http://127.0.0.1:18080/api/v1';
-export const KOIOS_PREPROD = 'https://preprod.koios.rest/api/v1';
 const HASH = /^[0-9a-f]{64}$/;
 
 /**
@@ -34,26 +34,27 @@ export class DevnetReader implements ChainReader {
   }
 }
 
-/** The optional development cache `/api/cardano`; untrusted like any transport, so it serves only raw bytes. */
-export class ProxyTransactions {
-  constructor(private readonly base = '/api/cardano', private readonly fetcher: typeof fetch = (...args) => fetch(...args)) {}
+/** Transaction bytes through the same-origin relay (D17); untrusted like any transport, so it serves only raw bytes. */
+export class RelayTransactions {
+  constructor(private readonly fetcher: typeof fetch = (...args) => fetch(...args)) {}
   async get_transaction(tx_hash: string, network: ChainNetwork): Promise<RawTransaction | null> {
-    if (network !== 'preprod') return null;
-    const response = await this.fetcher(`${this.base}?${new URLSearchParams({ kind: 'tx', network, tx_hash })}`, { signal: AbortSignal.timeout(30000) });
+    if (!Object.hasOwn(KOIOS, network) || !HASH.test(tx_hash)) return null;
+    const response = await this.fetcher(relay_url({ kind: 'tx', network, tx_hashes: [tx_hash] }), { signal: AbortSignal.timeout(30000) });
     if (!response.ok) throw new Error('Chain read unavailable; keep your private draft and retry.');
-    const value = await response.json() as RawTransaction | null;
-    return value && typeof value.cbor === 'string' ? { cbor: value.cbor } : null;
+    const rows = await response.json() as { tx_hash?: unknown; cbor?: unknown }[];
+    const row = Array.isArray(rows) ? rows.find(r => r?.tx_hash === tx_hash) : undefined;
+    return row && typeof row.cbor === 'string' ? { cbor: row.cbor } : null;
   }
 }
 
-export type Transport = 'direct' | 'proxy';
 /** Dispatches by network; the Mithril instance is shared so certificates verified once are reused. */
-export function web_reader(transport: Transport, devnet_signed: Map<string, string>, mithril: MithrilInclusion): ChainReader {
+export function web_reader(devnet_signed: Map<string, string>, mithril: MithrilInclusion): ChainReader {
   const devnet = new DevnetReader(devnet_signed);
-  const preprod = public_reader(transport === 'proxy' ? new ProxyTransactions() : new KoiosTransactions(KOIOS_PREPROD), mithril);
+  const preprod = public_reader(new RelayTransactions(), mithril);
   const pick = (network: ChainNetwork) => network === 'devnet' ? devnet : preprod;
   return {
     get_transaction: (hash, network) => network === 'devnet' || network === 'preprod' ? pick(network).get_transaction(hash, network) : Promise.resolve(null),
-    get_inclusion: (hash, network) => pick(network).get_inclusion(hash, network),
+    // No source for other networks: no proof either (a claimed mainnet commitment is never looked up on mainnet).
+    get_inclusion: (hash, network) => network === 'devnet' || network === 'preprod' ? pick(network).get_inclusion(hash, network) : Promise.resolve({ status: 'pending', trust: 'mithril' }),
   };
 }

@@ -1,6 +1,7 @@
 import { CHAIN_NETWORKS, DOMAIN, unhex, type ChainNetwork } from './commitment.ts';
 import { canonicalize, validate_manifest, type Json, type Manifest } from './manifest.ts';
 import { type RevealDraft } from './verifier.ts';
+import { verify_transaction } from './transaction.ts';
 
 export interface ExperimentResult {
   experiment_id: string;
@@ -19,6 +20,8 @@ export interface RevealBundle {
   results: ExperimentResult[];
   files: DisclosedFile[];
   self_reported_period?: { started_at?: string; finished_at?: string };
+  /** The signed commitment transaction, so a reader needs only Mithril, not an indexer, to check it (D17). */
+  commitment_tx_cbor?: string;
 }
 
 export const MAX_URL_BYTES = 512;
@@ -62,7 +65,7 @@ function nonempty(value: unknown): string {
 function unique(values: string[]) { if (new Set(values).size !== values.length) throw new Error('Bundle entries must be unique.'); }
 
 export function validate_bundle(input: unknown): RevealBundle {
-  const b = object(input, ['bundle_version', 'app', 'network', 'commitment_tx_hash', 'manifest', 'salt_hex', 'results', 'files'], ['self_reported_period']);
+  const b = object(input, ['bundle_version', 'app', 'network', 'commitment_tx_hash', 'manifest', 'salt_hex', 'results', 'files'], ['self_reported_period', 'commitment_tx_cbor']);
   if (b.bundle_version !== 1 || b.app !== DOMAIN) throw new Error('Unsupported reveal bundle version.');
   if (!(CHAIN_NETWORKS as readonly unknown[]).includes(b.network)) throw new Error('Unknown network.');
   if (typeof b.commitment_tx_hash !== 'string' || !HASH.test(b.commitment_tx_hash)) throw new Error('Invalid commitment transaction hash.');
@@ -88,14 +91,19 @@ export function validate_bundle(input: unknown): RevealBundle {
     const p = object(b.self_reported_period, [], ['started_at', 'finished_at']);
     for (const value of Object.values(p)) if (typeof value !== 'string' || !TIME.test(value) || !Number.isFinite(Date.parse(value))) throw new Error('Self-reported times must be UTC YYYY-MM-DDTHH:mm:ssZ.');
   }
+  if (b.commitment_tx_cbor !== undefined && (typeof b.commitment_tx_cbor !== 'string' || !/^([0-9a-f]{2}){1,16384}$/.test(b.commitment_tx_cbor))) {
+    throw new Error('commitment_tx_cbor must be lowercase hex transaction bytes.');
+  }
   canonicalize(b);
   return structuredClone(b) as unknown as RevealBundle;
 }
 
 export function create_bundle(draft: RevealDraft, results: ExperimentResult[], files: DisclosedFile[], period?: RevealBundle['self_reported_period']): RevealBundle {
+  if (draft.tx_cbor !== undefined) verify_transaction(draft.tx_cbor, draft.tx_hash);  // carried bytes must be this commitment
   return validate_bundle({
     bundle_version: 1, app: DOMAIN, network: draft.network, commitment_tx_hash: draft.tx_hash,
     manifest: draft.manifest, salt_hex: draft.salt_hex, results, files, ...(period ? { self_reported_period: period } : {}),
+    ...(draft.tx_cbor ? { commitment_tx_cbor: draft.tx_cbor } : {}),
   });
 }
 /** The hosted file must be exactly these bytes for the announced hash to match. */

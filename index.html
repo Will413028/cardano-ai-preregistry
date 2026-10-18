@@ -70,11 +70,9 @@
       <section aria-labelledby="reveal-heading">
         <div class="section-heading"><span class="step">03</span><h2 id="reveal-heading">Verify a disclosure</h2></div>
         <p>Check a bundle directly, or check an on-chain announcement, its signer and the bundle. Bundles and files can be uploaded here or fetched from their own URLs; either way they are checked by hash.</p>
-        <p class="helper">This page reads raw transactions from Koios and verifies them itself: transaction hash, metadata hash and the registrant's signature, then a Mithril certificate for inclusion and block time. The first Mithril check in a browser takes about a minute; later checks reuse verified certificates.</p>
+        <p class="helper">This page reads raw transactions from Koios through this site's relay (an untrusted transport), or from a bundle that carries them, and verifies them itself: transaction hash, metadata hash and the registrant's signature, then a Mithril certificate for inclusion and block time. The first Mithril check in a browser takes about a minute; later checks reuse verified certificates.</p>
         <label for="verify-source">Read chain records from</label>
         <select id="verify-source"><option value="local">Local demo in this tab</option><option value="chain">Selected test network in record</option></select>
-        <label for="read-transport">Fetch raw transactions</label>
-        <select id="read-transport"><option value="direct">Directly from Koios and Mithril</option><option value="proxy">Through this app's development cache (untrusted)</option></select>
         <label for="bundle">Disclosure bundle (JSON)</label>
         <textarea id="bundle" spellcheck="false" rows="10" placeholder="Paste a disclosure bundle."></textarea>
         <label for="verify-bundle-file">Or upload the bundle file (optional)</label>

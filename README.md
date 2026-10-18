@@ -4,7 +4,7 @@ Help AI, RAG and agent developers preregister experiments and compare disclosed 
 
 ## Status
 
-The local TypeScript web app retains its browser-memory demo and adds Mesh/CIP-30 testnet registration and disclosure: prepare a public metadata transaction, download the private draft, sign, submit and check chain confirmation; later create a disclosure bundle with results and file hashes, host it yourself, announce its URL and hash from the registering wallet, and verify the announcement, signer, bundle and files. Browser fixtures and real-CBOR tests cover the wallet flows. Verification reads raw transaction bytes and checks them itself (transaction hash, metadata hash, the registrant's witness), with a Mithril certificate for inclusion and block time on preprod; commitment format v2 binds the registrant into the hash. Local devnet registration, announcement and independent readback are validated, and a live read-only preprod check verifies a public sample transaction through Koios and Mithril. It does not derive registry states or list registrations. No deployment or user validation exists.
+The local TypeScript web app retains its browser-memory demo and adds Mesh/CIP-30 testnet registration and disclosure: prepare a public metadata transaction, download the private draft, sign, submit and check chain confirmation; later create a disclosure bundle with results and file hashes, host it yourself, announce its URL and hash from the registering wallet, and verify the announcement, signer, bundle and files. Browser fixtures and real-CBOR tests cover the wallet flows. Verification reads raw transaction bytes and checks them itself (transaction hash, metadata hash, the registrant's witness), with a Mithril certificate for inclusion and block time on preprod; commitment format v2 binds the registrant into the hash. Local devnet registration, announcement and independent readback are validated, and a live read-only preprod check verifies a public sample transaction through Koios and Mithril. Status derivation (`derive_status` in `src/registry.ts`) exists and is tested on fixtures only; the app does not list registrations or show states yet. No deployment or user validation exists.
 
 The approved MVP uses transaction metadata on preprod/local devnet; complete Koios indexing follows in a later step. See [the MVP plan](docs/plans/2026-10-01-preregistry-mvp.md), [registration acceptance](docs/plans/2026-10-01-preregistry-mvp/registration.md), [disclosure acceptance](docs/plans/2026-10-01-preregistry-mvp/disclosure.md), [trust-model acceptance](docs/plans/2026-10-01-preregistry-mvp/trust.md), [commitment v2 and the verification model](docs/commitment-v2.md) and [commitment v1](docs/commitment-v1.md).
 
@@ -42,8 +42,8 @@ cleared on reload. The dataset digest in the sample is a placeholder.
 
 ```sh
 make check        # lint, TypeScript check/build, unit tests, Chromium e2e
-make mutations    # tests must reject all fourteen deliberately broken behaviors
-make integration  # default: live, read-only Koios + Mithril check of a public preprod transaction (about a minute); no key
+make mutations    # tests must reject every deliberately broken behavior in scripts/mutations.mjs
+make integration  # default: live, read-only Koios + Mithril check of a public preprod transaction, then the built site read through its relay (a few minutes); no key
 PREREGISTRY_DEVNET=1 make integration  # opt-in: local magic-42 registration and announcement
 ```
 
@@ -51,10 +51,14 @@ After dependencies and Chromium are installed, `make check` and `make mutations`
 need no public-chain service; Mithril tests replay recorded preprod responses, and
 two of them walk the full certificate chain (about a minute each). GitHub Actions
 uses the same checks. `make integration` verifies an existing public sample, not an
-application commitment. The production build is static and reads Koios, the Mithril
-aggregator and (for devnet) Yaci Store directly. `/api/read` and `/api/cardano` are
-Vite development-only routes, not deployed APIs; `/api/cardano` is an optional,
-untrusted cache that returns only whitelisted public reads and raw transaction bytes.
+application commitment. Koios Public sends no CORS header on its responses, so the
+browser reads preprod through `/api/cardano`, a same-origin relay that forwards only
+whitelisted public queries (transaction bytes, label pages, the tip) and returns the
+raw Koios answer. It is an untrusted transport: every byte is verified in the browser,
+and it never derives a status. The same handler runs under `vite`, `vite preview` and
+`functions/api/cardano.ts` (a Cloudflare Pages Function, not deployed). The Mithril
+aggregator and, for devnet, Yaci Store are read directly. preprod protocol
+parameters are constants (`PREPROD_PROTOCOL` in `src/mesh-wallet.ts`).
 
 The independent verifiers are `verify_reveal` and `verify_announcement` in
 `src/verifier.ts`; they accept an injected `ChainReader` and file fetcher and
@@ -83,10 +87,12 @@ the wallet's change-address payment key, chosen before the hash is computed and
 declared as the transaction's required signer; the fee input may belong to another
 key of the same wallet. The app refuses to submit unless the signed transaction has
 a valid witness for the registrant. Mainnet, fragmented funding, multi-asset input
-selection and stake-key identities are outside this slice. Preprod reads go directly
-to public Koios (or through the development cache); local devnet reads require
-Yaci Store at `127.0.0.1:18080` (magic 42) and use the signed transactions this tab
-submitted, because Yaci Store keeps no transaction bytes.
+selection and stake-key identities are outside this slice. Preprod reads go through
+the relay; local devnet reads require Yaci Store at `127.0.0.1:18080` (magic 42) and
+use the signed transactions this tab submitted, because Yaci Store keeps no
+transaction bytes. After submission the private draft also holds the signed
+transaction, and bundles created from it carry it, so the commitment can later be
+checked with Mithril alone.
 
 A submitted transaction is pending until readback; on preprod it also waits for a
 Mithril certificate, usually a few minutes after inclusion. Keep its saved draft and

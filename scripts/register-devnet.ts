@@ -82,7 +82,8 @@ await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
 const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 try {
   const file = new TextEncoder().encode('run,accuracy\n1,0.81\n2,0.79\n3,0.80\n');
-  const bundle = create_bundle(draft, [{ experiment_id: 'baseline', completed_runs: 3, metrics: { accuracy: 0.8 } }],
+  // The bundle carries the signed commitment, as the web flow does after submission (D17).
+  const bundle = create_bundle({ ...draft, tx_cbor: signed_tx }, [{ experiment_id: 'baseline', completed_runs: 3, metrics: { accuracy: 0.8 } }],
     [{ path: 'results.csv', sha256: await sha256(file), url: `${base}/results.csv` }]);
   // A long path forces the multi-chunk URL metadata encoding through the real node and indexer.
   const bundle_path = `/disclosures/${tx_hash}/${'bundle-'.repeat(6)}v1.json`;

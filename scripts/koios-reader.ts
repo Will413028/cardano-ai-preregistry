@@ -1,8 +1,9 @@
 /** Read-only: verifies an existing public preprod transaction (not an app record) with Koios bytes and a Mithril v2 proof. */
 import { KoiosTransactions, MithrilInclusion, slot_time } from '../src/mithril.ts';
-import { KOIOS_PREPROD } from '../src/readers.ts';
+import { KOIOS } from '../src/relay.ts';
 import { verify_transaction, vkey_witnesses } from '../src/transaction.ts';
 
+const KOIOS_PREPROD = KOIOS.preprod!;
 const hash = process.argv[2] ?? '';
 if (!/^[0-9a-f]{64}$/.test(hash)) throw new Error('Expected a public preprod transaction hash.');
 const raw = await new KoiosTransactions(KOIOS_PREPROD).get_transaction(hash, 'preprod');

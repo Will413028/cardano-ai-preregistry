@@ -71,14 +71,6 @@ test('invalid JSON or schema never creates a commitment, and the layout fits mob
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test('read proxy accepts fixture reads, rejects private fields and has no write route', async ({ request }) => {
-  const base = '/api/read?kind=label&network=preprod&label=65536';
-  const good = await request.get(base);
-  expect(good.status()).toBe(200); expect(await good.json()).toEqual({ source: 'fixture', network: 'preprod', data: [] });
-  expect((await request.get(base + '&salt=secret')).status()).toBe(400);
-  expect((await request.post(base, { data: { manifest: 'private' } })).status()).toBe(405);
-});
-
 test('disclose a hosted file, announce locally, then detect replaced and missing files', async ({ page }) => {
   const hosted = new Map<string, string>();
   const fetched: string[] = [];

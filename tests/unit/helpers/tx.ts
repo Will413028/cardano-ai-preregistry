@@ -19,3 +19,8 @@ export function replace_part(cbor: string, index: number, value: Cbor): string {
   const raw = from_hex(cbor), parts = decode_array_spans(raw);
   return hex(raw.subarray(0, parts[0]!.span.start)) + parts.map((p, i) => i === index ? hex(encode(value)) : hex(raw.subarray(p.span.start, p.span.end))).join('');
 }
+/** A plain transfer paying `lovelace` to `address_bytes` at output 0: the wallet's funding transaction as an indexer serves it. */
+export function funding_transaction(address_bytes: Uint8Array, lovelace: number, seed = 1) {
+  const body = new CborMap([[0, [[new Uint8Array(32).fill(seed), 0]]], [1, [[address_bytes, lovelace]]], [2, 170000]]);
+  return { tx_hash: hex(blake2b(encode(body), { dkLen: 32 })), cbor: hex(encode([body, new CborMap([]), true, null])) };
+}

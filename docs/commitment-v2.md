@@ -40,13 +40,17 @@ requires that key's witness. The fee input may come from any wallet key. The web
 app takes the registrant from the wallet's change-address payment key before it
 computes the hash.
 
-## Reveal bundle (bundle_version 1, unchanged)
+## Reveal bundle (bundle_version 1; optional field added)
 
 The registrant creates the bundle in the browser and hosts it (D7=A). Fields:
 `bundle_version` (1), `app`, `network`, `commitment_tx_hash`, `manifest`,
 `salt_hex`, `results` (`experiment_id`, `completed_runs`, `metrics`), `files`
-(`path`, `sha256`, `url`) and optional `self_reported_period`
-(`started_at`/`finished_at`, UTC whole seconds). Paths and experiment IDs are
+(`path`, `sha256`, `url`), optional `self_reported_period`
+(`started_at`/`finished_at`, UTC whole seconds) and optional `commitment_tx_cbor`
+(the signed commitment transaction, lowercase hex; bundles without it stay valid).
+When present and it verifies as `commitment_tx_hash`, a verifier uses these bytes and
+needs only Mithril for inclusion; bytes without a Mithril proof show nothing about
+inclusion and are reported as not found. Bytes that do not verify are ignored. Paths and experiment IDs are
 unique; file hashes are SHA-256 lowercase hex of the exact bytes. The published
 file is `RFC8785_JCS(bundle)` as UTF-8; its SHA-256 is the bundle hash. The
 bundle carries no format version: the commitment it names decides v1 or v2.
@@ -55,8 +59,9 @@ local devnet runs) and without credentials.
 
 ## What a verifier trusts
 
-Readers fetch raw transaction bytes from any source (Koios `tx_cbor`, the optional
-development cache, a local file) and treat the source as untrusted.
+Readers fetch raw transaction bytes from any source (Koios `tx_cbor`, the site's
+same-origin relay, a draft or bundle carrying them, a local file) and treat the source
+as untrusted.
 `verify_transaction` in `src/transaction.ts` checks, from the bytes alone:
 
 - the BLAKE2b-256 of the original body bytes equals the requested transaction hash;

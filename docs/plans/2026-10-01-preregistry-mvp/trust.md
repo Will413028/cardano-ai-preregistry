@@ -2,7 +2,7 @@
 
 ## 產品路徑
 
-讀者不再信任任何 API 回傳的解析結果。所有讀取都先取得交易的原始 CBOR（Koios `tx_cbor`、可選的開發快取、本機保存的已簽交易），再自己核對：body bytes 的 hash 等於 tx hash、metadata 的 hash 等於 body 內的 auxiliary data hash、`required_signers` 恰好一把 key 且其 vkey witness 有效（這把 key 就是登記者）、交易不含任何能執行 script 的欄位。上鏈與時間來自 reader 的信任根：preprod 用 Mithril v2 transaction proof 對寫死的 genesis key 驗 certificate chain，時間由認證的 slot 以程式常數換算；devnet 由本機 indexer 確認，標「本機信任」；local demo 以公開的 demo key 簽出真實格式的交易，標「不是鏈上證據」。
+（2026-10-18 步驟 8a 更正：瀏覽器無法直連 Koios，preprod 讀取改經同源轉送層 `/api/cardano`，開發快取與傳輸選單已移除，見計畫 D17。）讀者不再信任任何 API 回傳的解析結果。所有讀取都先取得交易的原始 CBOR（Koios `tx_cbor`、可選的開發快取、本機保存的已簽交易），再自己核對：body bytes 的 hash 等於 tx hash、metadata 的 hash 等於 body 內的 auxiliary data hash、`required_signers` 恰好一把 key 且其 vkey witness 有效（這把 key 就是登記者）、交易不含任何能執行 script 的欄位。上鏈與時間來自 reader 的信任根：preprod 用 Mithril v2 transaction proof 對寫死的 genesis key 驗 certificate chain，時間由認證的 slot 以程式常數換算；devnet 由本機 indexer 確認，標「本機信任」；local demo 以公開的 demo key 簽出真實格式的交易，標「不是鏈上證據」。
 
 新登記用格式 v2：登記者 payment key hash 參與 commitment hash，別的 key 複製 commitment 也核對不成 match。v1 的 devnet 舊交易仍可核對，結果標明未綁定登記者。揭露包與檔案可以從 URL 或使用者上傳取得，一律以 hash 核對。
 

@@ -6,7 +6,7 @@ import { bundle_bytes, create_bundle, split_url } from '../../src/disclosure';
 import { TRUST_BOUNDARY, UNBOUND_REGISTRANT, verify_announcement, verify_commitment, verify_reveal, with_uploads, type FileFetcher, type RevealDraft } from '../../src/verifier';
 import { DEMO_KEY, demo_key } from '../../src/transaction';
 import { KoiosTransactions } from '../../src/mithril';
-import { DevnetReader, ProxyTransactions } from '../../src/readers';
+import { DevnetReader, RelayTransactions } from '../../src/readers';
 import { CborMap } from '../../src/cbor';
 import devnet from '../fixtures/chain/devnet-v1.json';
 import { build_tx, replace_part } from './helpers/tx';
@@ -125,15 +125,42 @@ describe('any source for the bundle and files (I4)', () => {
     // An upload with other bytes is not used for the file and the URL is still tried.
     expect((await verify_reveal(bundle, chain, with_uploads([new TextEncoder().encode('other')], offline))).status).toBe('files-unavailable');
   });
-  it('raw bytes through the development cache and directly from Koios give the same result', async () => {
+  it('a draft or bundle carrying the signed commitment verifies with no transport for the bytes (D17)', async () => {
+    const chain = new FakeChain();
+    const { draft, bundle } = await disclose(chain);
+    const cbor = (await chain.get_transaction(draft.tx_hash, 'preprod'))!.cbor;
+    const no_bytes: ChainReader = { get_transaction: async () => { throw new Error('indexer unreachable'); }, get_inclusion: async () => ({ status: 'certified', trust: 'mithril', slot: 136492696, block_number: 5300000 }) };
+    expect((await verify_commitment(draft, no_bytes)).status).toBe('unavailable');
+    expect((await verify_commitment({ ...draft, tx_cbor: cbor }, no_bytes)).status).toBe('match');
+    const carried = create_bundle({ ...draft, tx_cbor: cbor }, bundle.results, bundle.files);
+    expect(carried.commitment_tx_cbor).toBe(cbor);
+    // No indexer and no URL: the bytes are carried and the files uploaded.
+    expect((await verify_reveal(carried, no_bytes, with_uploads([FILE], offline))).status).toBe('match');
+    // Carried bytes that do not verify are ignored, and the transport is used instead.
+    const other = (await chain.get_transaction((await disclose(chain)).draft.tx_hash, 'preprod'))!.cbor;
+    expect((await verify_reveal({ ...carried, commitment_tx_cbor: other }, no_bytes, hosting(bundle_bytes(carried)))).status).toBe('unavailable');
+    expect((await verify_reveal({ ...carried, commitment_tx_cbor: other }, certified(chain), hosting(bundle_bytes(carried)))).status).toBe('match');
+    expect(() => create_bundle({ ...draft, tx_cbor: other }, bundle.results, bundle.files)).toThrow();
+  });
+  it('carried bytes without a Mithril proof are not evidence the transaction is on chain', async () => {
+    const chain = new FakeChain();
+    const { draft } = await disclose(chain);
+    const cbor = (await chain.get_transaction(draft.tx_hash, 'preprod'))!.cbor;
+    const never_landed: ChainReader = { get_transaction: async () => null, get_inclusion: async () => ({ status: 'pending', trust: 'mithril' }) };
+    const result = await verify_commitment({ ...draft, tx_cbor: cbor }, never_landed);
+    expect(result.status).toBe('not-found');
+    expect(result.detail).toMatch(/may never have reached the chain/);
+    // Bytes from a transport that has the transaction keep the found-but-pending meaning.
+    expect((await verify_commitment(draft, { ...never_landed, get_transaction: async () => ({ cbor }) })).status).toBe('pending');
+  });
+  it('raw bytes through the relay and directly from Koios give the same result', async () => {
     const chain = new FakeChain();
     const { draft } = await disclose(chain);
     const raw = (await chain.get_transaction(draft.tx_hash, 'preprod'))!;
-    const fetcher = vi.fn(async (url: string | URL | Request) => String(url).includes('/api/cardano') ? Response.json({ cbor: raw.cbor })
-      : Response.json([{ tx_hash: draft.tx_hash, cbor: raw.cbor, tx_timestamp: 1 }]));
+    const fetcher = vi.fn(async () => Response.json([{ tx_hash: draft.tx_hash, cbor: raw.cbor, tx_timestamp: 1 }]));
     const inclusion = async (): Promise<Inclusion> => ({ status: 'certified', trust: 'mithril', slot: 136492696, block_number: 5300000 });
     const direct = await verify_commitment(draft, { get_transaction: (h, n) => new KoiosTransactions('https://koios.test/api/v1', fetcher).get_transaction(h, n), get_inclusion: inclusion });
-    const cached = await verify_commitment(draft, { get_transaction: (h, n) => new ProxyTransactions('/api/cardano', fetcher).get_transaction(h, n), get_inclusion: inclusion });
+    const cached = await verify_commitment(draft, { get_transaction: (h, n) => new RelayTransactions(fetcher).get_transaction(h, n), get_inclusion: inclusion });
     expect(direct.status).toBe('match');
     expect(cached).toEqual(direct);
     expect(fetcher).toHaveBeenCalledTimes(2);

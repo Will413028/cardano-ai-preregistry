@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import evidence from '../../docs/plans/2026-10-01-preregistry-mvp/chain-results.json';
-import { DevnetReader, ProxyTransactions, web_reader } from '../../src/readers.ts';
+import { DevnetReader, RelayTransactions, web_reader } from '../../src/readers.ts';
 import { KoiosTransactions, MithrilInclusion } from '../../src/mithril.ts';
 
 const HASH = evidence.tx_id;
@@ -19,18 +19,24 @@ it.each([{ hash: 'c'.repeat(64) }, { invalid: true }, { slot: 0 }])('devnet reje
   const reader = new DevnetReader(new Map([[HASH, 'abcd']]), 'http://x', async url => Response.json(String(url).endsWith('/metadata') ? evidence.metadata_readback : { ...evidence.tx_info, ...overrides }));
   await expect(reader.get_inclusion(HASH)).rejects.toThrow('Invalid local transaction context.');
 });
-it('Koios and the cache return raw bytes only for the requested hash on preprod', async () => {
+it('Koios and the relay return raw bytes only for the requested hash on preprod', async () => {
   const koios = new KoiosTransactions('https://koios.test/api/v1', async () => Response.json([{ tx_hash: 'b'.repeat(64), cbor: 'ff', tx_timestamp: 1 }]));
   // The transport's timestamp is dropped: time is evidence, not transport data.
   expect(await koios.get_transaction('b'.repeat(64), 'preprod')).toEqual({ cbor: 'ff' });
   expect(await koios.get_transaction('a'.repeat(64), 'preprod')).toBeNull();
   expect(await koios.get_transaction('a'.repeat(64), 'devnet')).toBeNull();
-  const proxy = new ProxyTransactions('/api/cardano', async () => Response.json(null));
-  expect(await proxy.get_transaction('a'.repeat(64), 'preprod')).toBeNull();
-  await expect(new ProxyTransactions('/api/cardano', async () => new Response('', { status: 502 })).get_transaction('a'.repeat(64), 'preprod')).rejects.toThrow('unavailable');
+  const urls: string[] = [];
+  const relay = new RelayTransactions(async url => { urls.push(String(url)); return Response.json([{ tx_hash: 'b'.repeat(64), cbor: 'ff', tx_timestamp: 1 }]); });
+  expect(await relay.get_transaction('b'.repeat(64), 'preprod')).toEqual({ cbor: 'ff' });
+  expect(await relay.get_transaction('a'.repeat(64), 'preprod')).toBeNull();
+  expect(await relay.get_transaction('a'.repeat(64), 'devnet')).toBeNull();
+  expect(urls).toEqual([`/api/cardano?kind=tx&network=preprod&tx_hashes=${'b'.repeat(64)}`, `/api/cardano?kind=tx&network=preprod&tx_hashes=${'a'.repeat(64)}`]);
+  await expect(new RelayTransactions(async () => new Response('', { status: 502 })).get_transaction('a'.repeat(64), 'preprod')).rejects.toThrow('unavailable');
 });
 it('the web reader dispatches by network and reads nothing for unsupported networks', async () => {
-  const reader = web_reader('direct', new Map(), new MithrilInclusion());
+  const reader = web_reader(new Map(), new MithrilInclusion());
   expect(await reader.get_transaction('a'.repeat(64), 'mainnet')).toBeNull();
   expect(await reader.get_transaction('a'.repeat(64), 'devnet')).toBeNull();
+  // A claimed mainnet transaction is never looked up on mainnet's aggregator.
+  expect(await reader.get_inclusion('a'.repeat(64), 'mainnet')).toEqual({ status: 'pending', trust: 'mithril' });
 });

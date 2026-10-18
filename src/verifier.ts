@@ -21,6 +21,8 @@ export interface RevealDraft {
   tx_hash: string;
   manifest: Manifest;
   salt_hex: string;
+  /** The signed commitment transaction, kept so it can be verified without an indexer (only Mithril is then needed). */
+  tx_cbor?: string;
 }
 /** Returns bytes for a disclosed file; `sha256` lets a source serve bytes the caller already has (uploads). */
 export interface FileFetcher { fetch(url: string, sha256: string): Promise<Uint8Array | null>; }
@@ -65,15 +67,21 @@ function failure(error: unknown): Verification {
 }
 const record_context = (network: ChainNetwork, r: ChainRecord): Partial<Context> => ({ network, block_time: r.time, slot: r.slot, trust: r.trust });
 
-/** Reads raw bytes from an untrusted source, verifies them and obtains inclusion from the reader's trust root (I4). */
-async function read_record(reader: ChainReader, tx_hash: string, network: ChainNetwork): Promise<ChainRecord | 'not-found' | 'pending'> {
-  const raw = await reader.get_transaction(tx_hash, network).catch(error => { throw new SourceError(message(error)); });
+const verifies = (cbor: string, tx_hash: string) => { try { verify_transaction(cbor, tx_hash); return true; } catch { return false; } };
+/**
+ * Reads raw bytes from an untrusted source, verifies them and obtains inclusion from the reader's trust root (I4).
+ * `carried`: the signed transaction held by a draft or bundle, used when it verifies, so no indexer is needed. Such
+ * bytes prove nothing about inclusion, so without a proof they mean "unproven", not "found but pending".
+ */
+async function read_record(reader: ChainReader, tx_hash: string, network: ChainNetwork, carried?: string): Promise<ChainRecord | 'not-found' | 'pending' | 'unproven'> {
+  const from_carried = carried !== undefined && verifies(carried, tx_hash);
+  const raw = from_carried ? { cbor: carried! } : await reader.get_transaction(tx_hash, network).catch(error => { throw new SourceError(message(error)); });
   if (!raw) return 'not-found';
   let tx;
   try { tx = verify_transaction(raw.cbor, tx_hash); }
   catch (error) { throw error instanceof TransactionError && error.kind === 'source' ? new SourceError(error.message) : error; }
   const inclusion = await reader.get_inclusion(tx_hash, network).catch(error => { throw new SourceError(message(error)); });
-  if (inclusion.status === 'pending' && inclusion.trust === 'mithril') return 'pending';
+  if (inclusion.status === 'pending' && inclusion.trust === 'mithril') return from_carried ? 'unproven' : 'pending';
   if (inclusion.status === 'certified' && inclusion.trust === 'mithril') {
     if (network === 'devnet') throw new Error('devnet has no Mithril certificate.');
     // Time is derived from the certified slot, never from a transport.
@@ -99,9 +107,11 @@ async function check_record(record: ChainRecord, network: ChainNetwork, manifest
   const detail = matches ? 'Manifest, registrant and deadline match the commitment.' : 'Manifest, salt, registrant or public deadline differs from the commitment.';
   return result(matches ? 'match' : 'mismatch', bound ? detail : `${detail} ${UNBOUND_REGISTRANT}`, { ...context, registrant: record.registrant, registrant_bound: bound });
 }
-async function read_commitment(reader: ChainReader, tx_hash: string, network: ChainNetwork): Promise<ChainRecord | Verification> {
-  const record = await read_record(reader, tx_hash, network);
+const UNPROVEN = 'No Mithril proof for this transaction yet: it may still be waiting in the mempool or may never have reached the chain.';
+async function read_commitment(reader: ChainReader, tx_hash: string, network: ChainNetwork, carried?: string): Promise<ChainRecord | Verification> {
+  const record = await read_record(reader, tx_hash, network, carried);
   if (record === 'not-found') return result('not-found', 'Commitment was not found on the claimed network.', { network });
+  if (record === 'unproven') return result('not-found', UNPROVEN, { network });
   if (record === 'pending') return result('pending', PENDING, { network, trust: 'mithril' });
   return record;
 }
@@ -112,13 +122,15 @@ export async function verify_commitment(input: unknown, reader: ChainReader): Pr
   try {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Expected a reveal draft.');
     const reveal = input as RevealDraft;
-    if (Object.keys(reveal).sort().join(',') !== ['format_version', 'network', 'tx_hash', 'manifest', 'salt_hex'].sort().join(',')) throw new Error('Unexpected or missing reveal fields.');
+    const keys = Object.keys(reveal).filter(k => k !== 'tx_cbor').sort().join(',');
+    if (keys !== ['format_version', 'network', 'tx_hash', 'manifest', 'salt_hex'].sort().join(',')) throw new Error('Unexpected or missing reveal fields.');
+    if (reveal.tx_cbor !== undefined && typeof reveal.tx_cbor !== 'string') throw new Error('Invalid transaction bytes.');
     if (!(FORMAT_VERSIONS as readonly unknown[]).includes(reveal.format_version)) throw new Error('Unsupported commitment format version.');
     if (!(CHAIN_NETWORKS as readonly unknown[]).includes(reveal.network)) throw new Error('Unsupported network.');
     if (typeof reveal.tx_hash !== 'string' || !/^[0-9a-f]{64}$/.test(reveal.tx_hash)) throw new Error('Invalid transaction hash.');
     const manifest = validate_manifest(reveal.manifest);
     const salt = unhex(reveal.salt_hex, 32);
-    const record = await read_commitment(reader, reveal.tx_hash, reveal.network);
+    const record = await read_commitment(reader, reveal.tx_hash, reveal.network, reveal.tx_cbor);
     return is_record(record) ? await check_record(record, reveal.network, manifest, salt, reveal.format_version) : record;
   } catch (error) {
     return failure(error);
@@ -146,7 +158,7 @@ async function reveal_against(bundle: RevealBundle, record: ChainRecord, files: 
 export async function verify_reveal(input: unknown, reader: ChainReader, files: FileFetcher): Promise<Verification> {
   try {
     const bundle = validate_bundle(input);
-    const record = await read_commitment(reader, bundle.commitment_tx_hash, bundle.network);
+    const record = await read_commitment(reader, bundle.commitment_tx_hash, bundle.network, bundle.commitment_tx_cbor);
     return is_record(record) ? await reveal_against(bundle, record, files) : record;
   } catch (error) { return failure(error); }
 }
@@ -161,7 +173,8 @@ export async function verify_announcement(tx_hash: string, network: ChainNetwork
   try {
     if (!/^[0-9a-f]{64}$/.test(tx_hash)) throw new Error('Invalid announcement transaction hash.');
     const record = await read_record(reader, tx_hash, network);
-    if (record === 'not-found') return done(result('not-found', 'Announcement was not found on the claimed network.', { network }));
+    // No carried bytes here, so 'unproven' cannot occur; it is treated like not-found.
+    if (record === 'not-found' || record === 'unproven') return done(result('not-found', 'Announcement was not found on the claimed network.', { network }));
     if (record === 'pending') return done(result('pending', PENDING, { network, trust: 'mithril' }));
     // Commitments and terminations are not announcements; any other kind is validated (and rejected) as one.
     if (!record.metadata || payload_kind(record.metadata) === null || is_termination(record.metadata)) return done(result('not-found', 'The transaction carries no disclosure announcement.', { network }));

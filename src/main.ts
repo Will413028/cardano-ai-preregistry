@@ -6,7 +6,7 @@ import { verify_announcement, verify_commitment, verify_reveal, with_uploads, VE
 import { sign_and_submit, type PreparedRegistration, type RegistrationWallet } from './registration.ts';
 import { DEMO_KEY } from './transaction.ts';
 import { MithrilInclusion } from './mithril.ts';
-import { web_reader, type Transport } from './readers.ts';
+import { web_reader } from './readers.ts';
 import { bundle_bytes, create_bundle, split_url, type DisclosedFile, type ExperimentResult, type RevealBundle } from './disclosure.ts';
 
 function element<T extends HTMLElement>(id: string): T { return document.getElementById(id) as T; }
@@ -40,13 +40,11 @@ for (const id of ['manifest', 'network', 'wallet']) element(id).addEventListener
 const mithril = new MithrilInclusion({ cache: true });
 /** devnet bytes: the signed transactions this tab submitted (the local indexer keeps no CBOR). */
 const devnet_signed = new Map<string, string>();
-// The development cache exists only under the Vite dev server; a built site always reads directly.
-if (!import.meta.env.DEV) element<HTMLSelectElement>('read-transport').querySelector('option[value="proxy"]')?.remove();
-const transport = (): Transport => import.meta.env.DEV && element<HTMLSelectElement>('read-transport').value === 'proxy' ? 'proxy' : 'direct';
-const live_reader = (): ChainReader => web_reader(transport(), devnet_signed, mithril);
+/** preprod bytes come through this site's relay (Koios sends no CORS headers, D17); devnet reads the local node. */
+const live_reader = (): ChainReader => web_reader(devnet_signed, mithril);
 async function chain_data() {
-  const { direct_chain_data, proxy_chain_data } = await import('./mesh-wallet.ts');
-  return transport() === 'proxy' ? proxy_chain_data : direct_chain_data();
+  const { web_chain_data } = await import('./mesh-wallet.ts');
+  return web_chain_data();
 }
 /** Shown while a check runs; a cold Mithril chain walk takes about a minute. */
 function checking(text = 'Checking transaction bytes and the Mithril certificate chain; the first check can take about a minute.') {
@@ -195,7 +193,9 @@ element('sign-submit').addEventListener('click', async () => {
     const { tx_hash: hash, signed_tx } = await sign_and_submit(registration, wallet, inspect_transaction);
     if (registration.payload.network === 'devnet') devnet_signed.set(hash, signed_tx);
     phase = 'submitted';
-    element('commit-message').textContent = `Submitted ${hash}. Confirmation is pending; keep your saved draft and check chain confirmation.`;
+    // The signed bytes let anyone check this commitment later with Mithril alone, without an indexer (D17).
+    if (saved_draft?.tx_hash === hash) { saved_draft = { ...saved_draft, tx_cbor: signed_tx.toLowerCase() }; reveal_input.value = JSON.stringify(saved_draft, null, 2); }
+    element('commit-message').textContent = `Submitted ${hash}. Confirmation is pending. Download the private draft again: it now also holds the signed transaction.`;
     read_button.disabled = false;
   } catch (error) {
     phase = 'uncertain';

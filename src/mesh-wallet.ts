@@ -11,8 +11,8 @@ function verified_registrant(cbor: string, tx_hash: string): string | null {
   try { return verify_transaction(cbor, tx_hash).registrant; } catch { return null; }
 }
 import { type Network } from './commitment.ts';
-import { DEVNET_API } from './readers.ts';
-import type { KoiosProvider, YaciProvider } from '@meshsdk/core';
+import { DEVNET_API, RelayTransactions } from './readers.ts';
+import type { YaciProvider } from '@meshsdk/core';
 
 export interface BuildWallet {
   getNetworkId(): Promise<number>;
@@ -85,31 +85,45 @@ export async function prepare_registration(payload: PublicPayload, registrant: s
 }
 export async function connect_wallet(name: string): Promise<BrowserWallet> { return BrowserWallet.enable(name); }
 export function installed_wallets(): { id: string; name: string }[] { return BrowserWallet.getInstalledWallets(); }
-/** Write-side reads go straight to the public provider, so a built site needs no development server. */
-export function direct_chain_data(): PublicChainData {
-  const providers = new Map<Network, Promise<YaciProvider | KoiosProvider>>();
-  const provider = (network: Network) => {
-    let p = providers.get(network);
-    if (!p) {
-      p = import('@meshsdk/core').then(({ YaciProvider, KoiosProvider }) => network === 'devnet' ? new YaciProvider(DEVNET_API) : new KoiosProvider('preprod'));
-      providers.set(network, p);
-    }
-    return p;
-  };
-  return {
-    protocol: async network => (await provider(network)).fetchProtocolParameters(),
-    utxos: async (network, hash) => (await provider(network)).fetchUTxOs(hash),
-  };
-}
-/** Same reads through the optional development cache; it is a transport, so results are checked the same way. */
-export const proxy_chain_data: PublicChainData = {
-  protocol: network => proxy_read('protocol', network),
-  utxos: (network, hash) => proxy_read('utxos', network, hash),
+/**
+ * preprod protocol parameters as constants (D17): the static site has no CORS-readable source for them. Values from
+ * Koios Public `epoch_params` through Mesh `KoiosProvider`, epoch 320, checked 2026-10-18; the fee-relevant ones
+ * (minFeeA 44, minFeeB 155381, coinsPerUtxoSize 4310, maxTxSize 16384) equal Mesh's defaults. If they rise, the
+ * ledger rejects the underpaid transaction at submission and nothing is lost; the fee cap (D10) still applies.
+ */
+export const PREPROD_PROTOCOL: Protocol = {
+  epoch: 320, coinsPerUtxoSize: 4310, priceMem: 0.0577, priceStep: 0.0000721, minFeeA: 44, minFeeB: 155381, keyDeposit: 2000000,
+  maxTxSize: 16384, maxValSize: 5000, poolDeposit: 500000000, maxCollateralInputs: 3, decentralisation: 0, maxBlockSize: 90112,
+  collateralPercent: 150, maxBlockHeaderSize: 1100, minPoolCost: '75000000', maxTxExMem: '17500000', maxTxExSteps: '10000000000',
+  maxBlockExMem: '77500000', maxBlockExSteps: '20000000000', minFeeRefScriptCostPerByte: 15,
 };
-async function proxy_read<T>(kind: string, network: Network, hash?: string): Promise<T> {
-  const params = new URLSearchParams({ kind, network });
-  if (hash) params.set('tx_hash', hash);
-  const response = await fetch(`/api/cardano?${params}`, { signal: AbortSignal.timeout(30000) });
-  if (!response.ok) throw new Error('Chain read unavailable; keep your private draft and retry.');
-  return response.json() as Promise<T>;
+/**
+ * The outputs of `tx_hash` as read through the relay. The bytes must hash to `tx_hash`; finding them on the selected
+ * network is what guards against a wallet connected to another testnet (both use network id 0), whose submission would
+ * land there instead.
+ */
+export async function relay_utxos(tx_hash: string, transactions = new RelayTransactions()): Promise<UTxO[]> {
+  const raw = await transactions.get_transaction(tx_hash, 'preprod');
+  if (!raw) return [];
+  const tx = core.deserializeTx(raw.cbor);
+  if (tx.getId() !== tx_hash) throw new Error('The chain read returned a different transaction.');
+  // Only address and amount are filled: all `prepare_registration` compares. Byron outputs have no bech32 and are skipped.
+  return tx.body().outputs().flatMap((output, outputIndex) => {
+    let address: string;
+    try { address = output.address().toBech32(); } catch { return []; }
+    const value = output.amount(), assets = value.multiasset();
+    return [{ input: { txHash: tx_hash, outputIndex }, output: { address, amount: [
+      { unit: 'lovelace', quantity: value.coin().toString() },
+      ...[...assets?.entries() ?? []].map(([unit, quantity]) => ({ unit: String(unit), quantity: quantity.toString() })),
+    ] } }];
+  });
+}
+/** devnet reads the local Yaci node directly; preprod uses constants and the same-origin relay, so a built site works. */
+export function web_chain_data(): PublicChainData {
+  let yaci: Promise<YaciProvider> | undefined;
+  const devnet = () => yaci ??= import('@meshsdk/core').then(({ YaciProvider }) => new YaciProvider(DEVNET_API));
+  return {
+    protocol: async network => network === 'devnet' ? (await devnet()).fetchProtocolParameters() : PREPROD_PROTOCOL,
+    utxos: async (network, hash) => network === 'devnet' ? (await devnet()).fetchUTxOs(hash) : relay_utxos(hash),
+  };
 }

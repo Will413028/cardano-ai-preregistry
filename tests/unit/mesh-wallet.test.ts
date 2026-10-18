@@ -1,6 +1,9 @@
-import { expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { core, DEFAULT_PROTOCOL_PARAMETERS, type UTxO } from '@meshsdk/core';
-import { prepare_announcement, prepare_registration, inspect_transaction, wallet_registrant } from '../../src/mesh-wallet.ts';
+import { prepare_announcement, prepare_registration, inspect_transaction, wallet_registrant, PREPROD_PROTOCOL, relay_utxos } from '../../src/mesh-wallet.ts';
+import { RelayTransactions } from '../../src/readers.ts';
+import { funding_transaction } from './helpers/tx.ts';
+import { from_hex } from '../../src/transaction.ts';
 import { split_url } from '../../src/disclosure.ts';
 import { public_metadata } from '../../src/registration.ts';
 
@@ -66,4 +69,25 @@ it('rejects a mainnet wallet and a script change address as registrant', async (
   await expect(wallet_registrant({ ...wallet, getNetworkId: async () => 1 })).rejects.toThrow('Mainnet');
   const script = core.buildEnterpriseAddress(0, core.Hash28ByteBase16('d'.repeat(56)), core.CredentialType.ScriptHash).toAddress().toBech32();
   await expect(wallet_registrant({ ...wallet, getChangeAddress: async () => script })).rejects.toThrow('payment key');
+});
+describe('preprod write-side reads without Koios CORS (D17)', () => {
+  const owner = core.buildEnterpriseAddress(0, core.Hash28ByteBase16(KEY));
+  const funding = funding_transaction(from_hex(String(owner.toAddress().toBytes())), 10000000);
+  const relay = (cbor: string | null) => new RelayTransactions(async () => Response.json(cbor ? [{ tx_hash: funding.tx_hash, cbor }] : []));
+  it('reads the funding outputs from the relay bytes and checks they hash to the requested transaction', async () => {
+    expect(await relay_utxos(funding.tx_hash, relay(funding.cbor))).toEqual([
+      { input: { txHash: funding.tx_hash, outputIndex: 0 }, output: { address: owner.toAddress().toBech32(), amount: [{ unit: 'lovelace', quantity: '10000000' }] } }]);
+    const other = funding_transaction(from_hex(String(owner.toAddress().toBytes())), 10000000, 2);
+    await expect(relay_utxos(funding.tx_hash, relay(other.cbor))).rejects.toThrow('different transaction');
+    expect(await relay_utxos(funding.tx_hash, relay(null))).toEqual([]);
+  });
+  it('a wallet on another testnet is refused: its input is not on the selected network', async () => {
+    const wallet_input: UTxO = { input: { txHash: funding.tx_hash, outputIndex: 0 }, output: { address: owner.toAddress().toBech32(), amount: [{ unit: 'lovelace', quantity: '10000000' }] } };
+    const on_preprod = { getNetworkId: async () => 0, getChangeAddress: async () => owner.toAddress().toBech32(), getUtxos: async () => [wallet_input] };
+    const preprod = { ...payload, network: 'preprod' } as const;
+    const found = { protocol: async () => PREPROD_PROTOCOL, utxos: (_: unknown, hash: string) => relay_utxos(hash, relay(funding.cbor)) };
+    expect((await prepare_registration(preprod, KEY, on_preprod, found)).registrant).toBe(KEY);
+    const missing = { ...found, utxos: (_: unknown, hash: string) => relay_utxos(hash, relay(null)) };
+    await expect(prepare_registration(preprod, KEY, on_preprod, missing)).rejects.toThrow('selected test network');
+  });
 });
